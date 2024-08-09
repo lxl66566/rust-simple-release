@@ -1,6 +1,7 @@
 import json
 import logging as log
 import os
+import shutil
 import subprocess
 import tarfile
 import tempfile
@@ -9,6 +10,7 @@ import zipfile
 from functools import reduce
 from pathlib import Path
 
+TARGET_DIR = "target/rust-release-action"
 artifacts_path = []
 
 
@@ -45,7 +47,19 @@ def rc(s: str, **kwargs):
     log.debug(colored(f"run: `{s}`", "green"))
     kwargs.setdefault("check", True)
     kwargs.setdefault("shell", True)
-    return subprocess.run(s, **kwargs)
+    try:
+        result = subprocess.run(s, **kwargs)
+        return result
+    except subprocess.CalledProcessError as e:
+        log.error(
+            colored(
+                f"Command '{e.cmd}' returned non-zero exit status {e.returncode}.",
+                "red",
+            )
+        )
+        log.error(colored(f"Output: {e.output}", "red"))
+        log.error(colored(f"Error: {e.stderr}", "red"))
+        raise
 
 
 def colored(msg: str, color: str):
@@ -81,7 +95,7 @@ def cargo_metadata(cwd: str = "."):
     get metadata in Cargo.toml
     """
     metadata = rc(
-        "cargo metadata --format-version 1", capture_output=True, cwd=cwd
+        "cargo metadata --format-version 1 --no-deps", capture_output=True, cwd=cwd
     ).stdout.strip()
     return json.loads(metadata)
 
@@ -147,7 +161,13 @@ def get_output_bin_name(target: str):
 
 
 def build_one_target(target: str):
-    cmd = ["cargo build --release"]
+    cmd = []
+    rc(f"rustup target add {target}")
+    if "aarch" in target and "gnu" in target:
+        rc("sudo apt install gcc-aarch64-linux-gnu")
+        cmd.append("""RUSTFLAGS="-C linker=aarch64-linux-gnu-gcc" """)
+
+    cmd.append("cargo build --release")
     if target:
         rc(f"rustup target add {target}")
         cmd.append(f"--target {target}")
@@ -157,7 +177,8 @@ def build_one_target(target: str):
         cmd.append(f"--features {features}")
     if package := get_input("INPUT_PACKAGE"):
         cmd.append(f"--package {package}")
-    rc(cmd.join(" "))
+    rc(" ".join(cmd))
+    log.info(f"target {target} build success")
 
 
 def pack(name: str, target: str):
@@ -170,7 +191,9 @@ def pack(name: str, target: str):
     global artifacts_path
     format = target_to_archive_format(target)
     assert format in ["zip", "tar"], "unsupported format"
-    bin_path = Path("target") / "release" / get_output_bin_name(target)
+
+    # https://doc.rust-lang.org/cargo/guide/build-cache.html
+    bin_path = Path("target") / target or "release" / get_output_bin_name(target)
     paths = get_input_list("INPUT_FILES_TO_PACK") or []
     paths.append(bin_path)
     # unique
@@ -179,6 +202,7 @@ def pack(name: str, target: str):
         artifacts_path.append(create_zip_in_tmp(name, paths))
     else:
         artifacts_path.append(create_tar_gz_in_tmp(name, paths))
+    log.info("files packed")
 
 
 def target_to_archive_format(target: str):
@@ -196,11 +220,29 @@ def target_to_archive_format(target: str):
 def upload_files_to_github_release(files: list[Path]):
     token = get_input("INPUT_TOKEN")
     ref_name = get_input("GITHUB_REF_NAME")
-    artifacts = list(map(str, artifacts_path)).join(" ")
+    artifacts = " ".join(list(map(str, artifacts_path)))
     # https://github.com/orgs/community/discussions/26686#discussioncomment-3396593
     rc(
         f"""GITHUB_TOKEN="{token}" retry gh release upload "{ref_name}" {artifacts} --clobber"""
     )
+    log.info("file upload successfully")
+
+
+def fuck_openssl():
+    lock = Path("Cargo.lock")
+    if (lock.exists() and "openssl" in lock.read_text()) or any(
+        map(lambda x: "openssl" in x.read_text(), Path(".").rglob("Cargo.toml"))
+    ):
+        if shutil.which("apt"):
+            rc("sudo apt install pkg-config libssl-dev")
+        elif shutil.which("brew"):
+            rc("brew install openssl")
+
+
+def install_toolchain():
+    log.info("install musl")
+    if "musl" in get_input_list("INPUT_TARGETS"):
+        rc("sudo apt install musl-tools")
 
 
 # region run
@@ -208,15 +250,18 @@ def upload_files_to_github_release(files: list[Path]):
 
 def main():
     log.basicConfig(level=log.DEBUG if debug_mode() else log.INFO)
-    log.info("install rustup")
-    rc("curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -- -y -q")
+    install_toolchain()
+    fuck_openssl()
     targets = get_input_list("INPUT_TARGETS")
     for target in targets:
-        archive_name = get_output_bin_name() + target
+        archive_name = get_output_bin_name(target) + target
         build_one_target(target)
         pack(archive_name, target)
     upload_files_to_github_release(artifacts_path)
 
+
+if __name__ == "__main__":
+    main()
 
 # region test
 

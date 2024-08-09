@@ -1,5 +1,5 @@
 name: "Rust simple release"
-description: "Extremely simple release for small rust project"
+description: "Extremely simple all-in-one release for small rust project"
 
 # See: https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#branding
 branding:
@@ -40,8 +40,9 @@ runs:
     - uses: actions/setup-python@v5
       with:
         python-version: "3.12"
+    - uses: dtolnay/rust-toolchain@stable
     - shell: bash
-      run: python main.py
+      run: python "${GITHUB_ACTION_PATH:?}/main.py"
       env:
         INPUT_PACKAGE: ${{ inputs.package }}
         INPUT_TARGETS: ${{ inputs.targets }}
