@@ -40,11 +40,19 @@ def get_input_list(name: str):
         return None
 
 
+def info(s):
+    log.info(" " + colored(s, "green"))
+
+
+def debug(s):
+    log.debug(" " + colored(s, "blue"))
+
+
 def rc(s: str, **kwargs):
     """
     rc means run with check.
     """
-    log.debug(colored(f"run: `{s}`", "green"))
+    info(colored(f"run: `{s}`", "green"))
     kwargs.setdefault("check", True)
     kwargs.setdefault("shell", True)
     try:
@@ -89,6 +97,14 @@ def once(func):
     return wrapper
 
 
+def apt(*package: str):
+    """
+    install package with apt
+    """
+    assert shutil.which("sudo") and shutil.which("apt")
+    rc("sudo apt install -y -q " + " ".join(package))
+
+
 @once
 def cargo_metadata(cwd: str = "."):
     """
@@ -113,7 +129,7 @@ def create_zip_in_tmp(zip_name: str, files_to_add: list[str]):
                         )
             else:
                 zipf.write(file, os.path.basename(file))
-    log.info(f"Created `{zip_path}` successfully!")
+    info(f"Created `{zip_path}` successfully!")
     return zip_path
 
 
@@ -131,7 +147,7 @@ def create_tar_gz_in_tmp(tar_name: str, files_to_add: list[str]):
                         tar.add(file_path, arcname=relative_path)
             else:
                 tar.add(file, arcname=os.path.basename(file))
-    log.info(f"Created {tar_path} successfully!")
+    info(f"Created {tar_path} successfully!")
     return tar_path
 
 
@@ -156,16 +172,31 @@ def get_output_bin_name(target: str):
         output_bin_name = package_meta["name"]
     if "windows" in target.lower():
         output_bin_name += ".exe"
-    log.debug(f"get output bin name: {output_bin_name}")
+    debug(f"get output bin name: {output_bin_name}")
     return output_bin_name
+
+
+def get_linker_flags_by_target(target: str):
+    if "aarch" in target:
+        if "gnu" in target:
+            return "aarch64-linux-gnu-gcc"
+        if "musl" in target:
+            return "aarch64-linux-musl-gcc"
+    if "windows" in target:
+        return "x86_64-w64-mingw32-gcc"
+    if "x86_64" in target:
+        if "musl" in target:
+            return "musl-gcc"
+        else:
+            return "gcc"
+    if "darwin" in target:
+        return "rust-lld"
 
 
 def build_one_target(target: str):
     cmd = []
     rc(f"rustup target add {target}")
-    if "aarch" in target and "gnu" in target:
-        rc("sudo apt install gcc-aarch64-linux-gnu")
-        cmd.append("""RUSTFLAGS="-C linker=aarch64-linux-gnu-gcc" """)
+    cmd.append(f"""RUSTFLAGS="-C linker={get_linker_flags_by_target(target)}" """)
 
     cmd.append("cargo build --release")
     if target:
@@ -178,7 +209,7 @@ def build_one_target(target: str):
     if package := get_input("INPUT_PACKAGE"):
         cmd.append(f"--package {package}")
     rc(" ".join(cmd))
-    log.info(f"target {target} build success")
+    info(f"target {target} build success")
 
 
 def pack(name: str, target: str):
@@ -202,7 +233,7 @@ def pack(name: str, target: str):
         artifacts_path.append(create_zip_in_tmp(name, paths))
     else:
         artifacts_path.append(create_tar_gz_in_tmp(name, paths))
-    log.info("files packed")
+    info("files packed")
 
 
 def target_to_archive_format(target: str):
@@ -213,7 +244,7 @@ def target_to_archive_format(target: str):
         ext = "zip"
     else:
         ext = "tar"
-    log.debug(f"get format from target {target} : {ext}")
+    debug(f"get format from target {target} : {ext}")
     return ext
 
 
@@ -225,7 +256,7 @@ def upload_files_to_github_release(files: list[Path]):
     rc(
         f"""GITHUB_TOKEN="{token}" retry gh release upload "{ref_name}" {artifacts} --clobber"""
     )
-    log.info("file upload successfully")
+    info("file upload successfully")
 
 
 def fuck_openssl():
@@ -234,15 +265,37 @@ def fuck_openssl():
         map(lambda x: "openssl" in x.read_text(), Path(".").rglob("Cargo.toml"))
     ):
         if shutil.which("apt"):
-            rc("sudo apt install pkg-config libssl-dev")
+            apt("pkg-config", "libssl-dev")
         elif shutil.which("brew"):
             rc("brew install openssl")
 
 
 def install_toolchain():
-    log.info("install musl")
-    if "musl" in get_input_list("INPUT_TARGETS"):
-        rc("sudo apt install musl-tools")
+    input_targets = get_input("INPUT_TARGETS")
+
+    def find(s):
+        return s in input_targets
+
+    info("install toolchain linkers")
+
+    if find("musl"):
+        apt("musl-tools")
+        info("installed musl-tools")
+    if find("aarch"):
+        apt("gcc-aarch64-linux-gnu")
+        info("installed gcc-aarch64-linux-gnu")
+    if find("windows"):
+        apt("gcc-mingw-w64-x86-64")
+        info("installed gcc-mingw-w64-x86-64")
+    if find("darwin"):
+        # https://github.com/rust-lang/rust/issues/112501#issuecomment-1682426620
+        apt("clang")
+        rc(
+            "curl -L https://github.com/roblabla/MacOSX-SDKs/releases/download/13.3/MacOSX13.3.sdk.tar.xz | tar xJ",
+            cwd="/tmp",
+        )
+        rc("export SDKROOT=$(pwd)/MacOSX13.3.sdk/", cwd="/tmp")
+        info("installed clang, MacOSX-SDKs")
 
 
 # region run
