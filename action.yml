@@ -41,6 +41,8 @@ runs:
       with:
         python-version: "3.12"
     - uses: dtolnay/rust-toolchain@stable
+    - uses: cargo-bins/cargo-binstall@main
+    - uses: goto-bus-stop/setup-zig@v2
     - shell: bash
       run: python "${GITHUB_ACTION_PATH:?}/main.py"
       env:

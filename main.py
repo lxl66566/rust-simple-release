@@ -105,6 +105,11 @@ def apt(*package: str):
     rc("sudo apt install -y -q " + " ".join(package))
 
 
+def binstall(*package: str):
+    assert shutil.which("cargo")
+    rc("cargo binstall -y --no-symlinks " + " ".join(package))
+
+
 @once
 def cargo_metadata(cwd: str = "."):
     """
@@ -177,28 +182,28 @@ def get_output_bin_name(target: str):
 
 
 def get_linker_flags_by_target(target: str):
-    # if "aarch" in target:
-    #     if "gnu" in target:
-    #         return "aarch64-linux-gnu-gcc"
-    #     if "musl" in target:
-    #         return "aarch64-linux-musl-gcc"
-    # if "windows" in target:
-    #     return "x86_64-w64-mingw32-gcc"
-    # if "x86_64" in target:
-    #     if "musl" in target:
-    #         return "musl-gcc"
-    #     else:
-    #         return "gcc"
-    # if "darwin" in target:
-    return "rust-lld"
+    if "aarch" in target:
+        if "gnu" in target:
+            return "aarch64-linux-gnu-gcc"
+        if "musl" in target:
+            return "aarch64-linux-musl-gcc"
+    if "windows" in target:
+        return "x86_64-w64-mingw32-gcc"
+    if "x86_64" in target:
+        if "musl" in target:
+            return "musl-gcc"
+        else:
+            return "gcc"
+    if "darwin" in target:
+        return "rust-lld"
 
 
 def build_one_target(target: str):
     cmd = []
     rc(f"rustup target add {target}")
-    cmd.append(f"""RUSTFLAGS="-C linker={get_linker_flags_by_target(target)}" """)
+    # cmd.append(f"""RUSTFLAGS="-C linker={get_linker_flags_by_target(target)}" """)
 
-    cmd.append("cargo build --release")
+    cmd.append("cargo zigbuild --release")
     if target:
         rc(f"rustup target add {target}")
         cmd.append(f"--target {target}")
@@ -276,20 +281,18 @@ def install_toolchain():
     def find(s):
         return s in input_targets
 
-    info("install toolchain linkers")
+    binstall("cargo-zigbuild")
 
+    info("install toolchain linkers")
     if find("musl"):
         apt("musl-tools")
         info("installed musl-tools")
-    if find("aarch"):
-        apt("gcc-aarch64-linux-gnu")
-        info("installed gcc-aarch64-linux-gnu")
     if find("windows"):
         apt("gcc-mingw-w64-x86-64")
         info("installed gcc-mingw-w64-x86-64")
     if find("darwin"):
         # https://github.com/rust-lang/rust/issues/112501#issuecomment-1682426620
-        apt("clang")
+        # apt("clang")
         rc(
             "curl -L https://github.com/roblabla/MacOSX-SDKs/releases/download/13.3/MacOSX13.3.sdk.tar.xz | tar xJ",
             cwd="/tmp",
