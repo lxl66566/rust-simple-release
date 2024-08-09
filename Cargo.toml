@@ -1,0 +1,13 @@
+[package]
+name = "action-test"
+repository = "https://github.com/lxl66566/Mars-Bot-rs"
+version = "0.0.1"
+
+[dependencies]
+
+[[bin]]
+name = "my-action-test"
+path = "src/main.rs"
+
+[features]
+test1 = []

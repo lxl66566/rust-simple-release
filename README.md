@@ -1,0 +1,3 @@
+# Rust simple release
+
+WIP
