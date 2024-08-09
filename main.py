@@ -177,20 +177,20 @@ def get_output_bin_name(target: str):
 
 
 def get_linker_flags_by_target(target: str):
-    if "aarch" in target:
-        if "gnu" in target:
-            return "aarch64-linux-gnu-gcc"
-        if "musl" in target:
-            return "aarch64-linux-musl-gcc"
-    if "windows" in target:
-        return "x86_64-w64-mingw32-gcc"
-    if "x86_64" in target:
-        if "musl" in target:
-            return "musl-gcc"
-        else:
-            return "gcc"
-    if "darwin" in target:
-        return "rust-lld"
+    # if "aarch" in target:
+    #     if "gnu" in target:
+    #         return "aarch64-linux-gnu-gcc"
+    #     if "musl" in target:
+    #         return "aarch64-linux-musl-gcc"
+    # if "windows" in target:
+    #     return "x86_64-w64-mingw32-gcc"
+    # if "x86_64" in target:
+    #     if "musl" in target:
+    #         return "musl-gcc"
+    #     else:
+    #         return "gcc"
+    # if "darwin" in target:
+    return "rust-lld"
 
 
 def build_one_target(target: str):
