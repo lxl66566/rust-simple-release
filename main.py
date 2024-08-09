@@ -1,6 +1,7 @@
 import json
 import logging as log
 import os
+import platform
 import shutil
 import subprocess
 import tarfile
@@ -65,8 +66,6 @@ def rc(s: str, **kwargs):
                 "red",
             )
         )
-        log.error(colored(f"Output: {e.output}", "red"))
-        log.error(colored(f"Error: {e.stderr}", "red"))
         raise
 
 
@@ -174,7 +173,7 @@ def get_output_bin_name(target: str):
         )
         assert package_meta, "package meta could not be none"
         assert package_meta["name"], "package name could not be none"
-        output_bin_name = package_meta["name"]
+        output_bin_name = Path(package_meta["name"]).name
     if "windows" in target.lower():
         output_bin_name += ".exe"
     debug(f"get output bin name: {output_bin_name}")
@@ -257,11 +256,22 @@ def upload_files_to_github_release(files: list[Path]):
     token = get_input("INPUT_TOKEN")
     ref_name = get_input("GITHUB_REF_NAME")
     artifacts = " ".join(list(map(str, artifacts_path)))
-    # https://github.com/orgs/community/discussions/26686#discussioncomment-3396593
-    rc(
-        f"""GITHUB_TOKEN="{token}" retry gh release upload "{ref_name}" {artifacts} --clobber"""
-    )
-    info("file upload successfully")
+    for retry in range(0, 5):
+        try:
+            # https://github.com/orgs/community/discussions/26686#discussioncomment-3396593
+            if platform.system() != "Windows":
+                rc(
+                    f"""GITHUB_TOKEN="{token}" gh release upload "{ref_name}" {artifacts} --clobber"""
+                )
+            else:
+                rc(
+                    """pwsh -c '$env:GITHUB_TOKEN="{token}"; gh release upload "{ref_name}" {artifacts} --clobber'"""
+                )
+            info("file upload successfully")
+            return
+        except:
+            pass
+    log.error(colored("cannot upload file.", "red"))
 
 
 def fuck_openssl():
@@ -273,6 +283,8 @@ def fuck_openssl():
             apt("pkg-config", "libssl-dev")
         elif shutil.which("brew"):
             rc("brew install openssl")
+        else:
+            rc("choco install openssl")
 
 
 def install_toolchain():
@@ -283,22 +295,20 @@ def install_toolchain():
 
     binstall("cargo-zigbuild")
 
-    info("install toolchain linkers")
-    if find("musl"):
-        apt("musl-tools")
-        info("installed musl-tools")
-    if find("windows"):
-        apt("gcc-mingw-w64-x86-64")
-        info("installed gcc-mingw-w64-x86-64")
-    if find("darwin"):
-        # https://github.com/rust-lang/rust/issues/112501#issuecomment-1682426620
-        # apt("clang")
-        rc(
-            "curl -L https://github.com/roblabla/MacOSX-SDKs/releases/download/13.3/MacOSX13.3.sdk.tar.xz | tar xJ",
-            cwd="/tmp",
-        )
-        rc("export SDKROOT=$(pwd)/MacOSX13.3.sdk/", cwd="/tmp")
-        info("installed clang, MacOSX-SDKs")
+    if platform.system() != "Windows":
+        info("install toolchain linkers")
+        if find("musl"):
+            apt("musl-tools")
+            info("installed musl-tools")
+        if find("darwin"):
+            # https://github.com/rust-lang/rust/issues/112501#issuecomment-1682426620
+            # apt("clang")
+            rc(
+                "curl -L https://github.com/roblabla/MacOSX-SDKs/releases/download/13.3/MacOSX13.3.sdk.tar.xz | tar xJ",
+                cwd="/tmp",
+            )
+            rc("export SDKROOT=$(pwd)/MacOSX13.3.sdk/", cwd="/tmp")
+            info("installed clang, MacOSX-SDKs")
 
 
 # region run
@@ -310,7 +320,12 @@ def main():
     fuck_openssl()
     targets = get_input_list("INPUT_TARGETS")
     for target in targets:
-        archive_name = get_output_bin_name(target) + target
+        if ("windows" in target and platform.system() != "Windows") or (
+            "windows" not in target and platform.system() == "Windows"
+        ):
+            info("platform does not match, skip build target.")
+            continue
+        archive_name = get_output_bin_name(target) + "-" + target
         build_one_target(target)
         pack(archive_name, target)
     upload_files_to_github_release(artifacts_path)

@@ -40,6 +40,9 @@ runs:
     - uses: actions/setup-python@v5
       with:
         python-version: "3.12"
+    - uses: taiki-e/create-gh-release-action@v1
+      with:
+        token: ${{ inputs.token }}
     - uses: dtolnay/rust-toolchain@stable
     - uses: cargo-bins/cargo-binstall@main
     - uses: goto-bus-stop/setup-zig@v2
