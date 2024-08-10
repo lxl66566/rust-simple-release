@@ -2,13 +2,13 @@
 
 **Extremely simple all-in-one** release for your rust project!
 
-This CI is for small and middle rust project, which doesn't need complex CI/CD. It supports rust workspace, but only allows build and upload from one package. (request features if you want more packages to build :) And it support to build multi features and bins.
+This CI is for small and middle rust project, which doesn't need complex CI/CD. It supports rust workspace, but only allows build and upload from one package. (request features if you want more packages to build :) And it supports building multi features and bins.
 
-**You don't need to worry about openssl deps, this action will solve it.** Just add `openssl = { version = "0", features = ["vendored"] }` to your `Cargo.toml`.
+**You don't need to worry about openssl deps, this action will solve it.** Just add `openssl = { version = "0", features = ["vendored"] }` to your `Cargo.toml`. (`vendored` is necessary)
 
-If you are using nightly or other toolchains, please add it to `rust-toolchain.toml`.
+If you are using nightly or other channels, please add it to `rust-toolchain.toml`.
 
-This action will automatically setup rust dev environment, and other tools like `cargo-zigbuild`. We don't use containers, so if you have other dependencies, just install them before running this action.
+This action will automatically setup rust dev environment, and other tools like `cargo-zigbuild`. **It doesn't use containers**, so if you have other dependencies, just install and config them before running this action.
 
 ## Usage
 
@@ -16,7 +16,7 @@ Please set your Github token before using this action. The example below uses `G
 
 ### Simple
 
-assume that your project only has one package with one binary, with no features.
+assume that your project only has only one package with no features.
 
 ```yaml
 name: rust release action
@@ -58,25 +58,28 @@ jobs:
       - name: test build rust project
         uses: lxl66566/rust-simple-release@main
         with:
-          # targets to compile, seperated by comma (allow space)
+          # Targets to compile, seperated by comma (allow space)
+          # Support Linux, Windows and Darwin
           targets: aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl, x86_64-pc-windows-msvc, x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin
 
-          # choose one package to build
+          # Choose one package to build. If not set, it will build first package in workspace.
           package: openssl-test
 
-          # choose bins to build, seperated by comma (allow space). If not set, it will build all bins in the package.
+          # Choose bins to build, seperated by comma. If not set, it will build all bins in the package.
           bins: my-action-test, my-action-test2
 
-          # features to build, seperated by comma (allow space)
+          # Features to build, seperated by comma
           features: test1, test2
 
-          # files or folders to pack into release assets, relative path seperated by comma
+          # Files or folders to pack into release assets, relative path seperated by comma.
+          # The files and folers will be added to the root path of archive.
+          # Build binaries will automatically added to the archive, you don't need to add them twice.
           files_to_pack: README.md, LICENSE, assets
 
           # release create options, see https://cli.github.com/manual/gh_release_create
           release_options: --draft --title 123
 
-          # GITHUB TOKEN, REQUIRED
+          # GITHUB TOKEN, **REQUIRED**
           token: ${{ secrets.GH_TOKEN }}
 
         env:
@@ -87,4 +90,8 @@ jobs:
 ## Hint
 
 - Do not setup `sccache`, because it may fail with `cargo-zigbuild` on macos.
-- Now the archive format is not selectable: `zip` for windows and `tar.gz` for other systems.
+- Now the archive format is not choosable: `zip` for windows and `tar.gz` for other systems. (request a feature if you want to change it :)
+
+## License
+
+MIT
