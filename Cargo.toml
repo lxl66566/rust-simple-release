@@ -1,14 +1,3 @@
-[package]
-name = "action-test"
-repository = "https://github.com/lxl66566/Mars-Bot-rs"
-version = "0.0.1"
-edition = "2021"
-
-[dependencies]
-
-[[bin]]
-name = "my-action-test"
-path = "src/main.rs"
-
-[features]
-test1 = []
+[workspace]
+resolver = "2"
+members = ["basic_test", "openssl_test"]

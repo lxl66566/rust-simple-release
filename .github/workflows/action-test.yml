@@ -6,19 +6,38 @@ on:
       - "v*"
 
 jobs:
-  test:
+  basic_test:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
+      - uses: taiki-e/create-gh-release-action@v1
+        with:
+          token: ${{ secrets.GH_TOKEN }}
       - name: test build rust project
         uses: lxl66566/rust-simple-release@main
         with:
           targets: "aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl, x86_64-pc-windows-msvc, x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin"
           bin: my-action-test
           features: test1
+          files_to_pack: "README.md, .github/workflows"
+          token: ${{ secrets.GH_TOKEN }}
+        env:
+          debug: 1
+  openssl_test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: test build rust project
+        uses: lxl66566/rust-simple-release@main
+        with:
+          package: "openssl-test"
+          targets: "aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl, x86_64-pc-windows-msvc, x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin"
           files_to_pack: "README.md, .github/workflows"
           token: ${{ secrets.GH_TOKEN }}
         env:

@@ -40,12 +40,17 @@ runs:
     - uses: actions/setup-python@v5
       with:
         python-version: "3.12"
-    - uses: taiki-e/create-gh-release-action@v1
-      with:
-        token: ${{ inputs.token }}
     - uses: dtolnay/rust-toolchain@stable
     - uses: cargo-bins/cargo-binstall@main
     - uses: goto-bus-stop/setup-zig@v2
+    # https://github.com/sfackler/rust-openssl/issues/2149#issuecomment-2014064057
+    - name: Set Perl environment variables
+      if: runner.os == 'Windows'
+      # https://docs.github.com/zh/actions/use-cases-and-examples/building-and-testing/building-and-testing-powershell
+      shell: pwsh
+      run: |
+        echo "PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        echo "OPENSSL_SRC_PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
     - shell: bash
       run: python "${GITHUB_ACTION_PATH:?}/main.py"
       env:
@@ -53,6 +58,6 @@ runs:
         INPUT_TARGETS: ${{ inputs.targets }}
         INPUT_BIN: ${{ inputs.bin }}
         INPUT_FEATURES: ${{ inputs.features }}
-        INPUT_TOKEN: ${{ inputs.token }}
         INPUT_FILES_TO_PACK: ${{ inputs.files_to_pack }}
         GITHUB_REF_NAME: ${{ github.ref_name }}
+        GITHUB_TOKEN: ${{ inputs.token }}

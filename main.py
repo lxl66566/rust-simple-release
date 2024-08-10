@@ -252,21 +252,21 @@ def target_to_archive_format(target: str):
     return ext
 
 
+def target_coresponding_to_platform(target: str):
+    return (
+        (platform.system() == "Windows" and "windows" in target)
+        or (platform.system() == "Darwin" and "darwin" in target)
+        or (platform.system() == "Linux" and "linux" in target)
+    )
+
+
 def upload_files_to_github_release(files: list[Path]):
-    token = get_input("INPUT_TOKEN")
     ref_name = get_input("GITHUB_REF_NAME")
     artifacts = " ".join(list(map(str, artifacts_path)))
     for retry in range(0, 5):
         try:
             # https://github.com/orgs/community/discussions/26686#discussioncomment-3396593
-            if platform.system() != "Windows":
-                rc(
-                    f"""GITHUB_TOKEN="{token}" gh release upload "{ref_name}" {artifacts} --clobber"""
-                )
-            else:
-                rc(
-                    """pwsh -c '$env:GITHUB_TOKEN="{token}"; gh release upload "{ref_name}" {artifacts} --clobber'"""
-                )
+            rc(f"""gh release upload "{ref_name}" {artifacts} --clobber""")
             info("file upload successfully")
             return
         except:
@@ -276,15 +276,24 @@ def upload_files_to_github_release(files: list[Path]):
 
 def fuck_openssl():
     lock = Path("Cargo.lock")
-    if (lock.exists() and "openssl" in lock.read_text()) or any(
-        map(lambda x: "openssl" in x.read_text(), Path(".").rglob("Cargo.toml"))
+    if not (
+        (lock.exists() and "openssl" in lock.read_text())
+        or any(map(lambda x: "openssl" in x.read_text(), Path(".").rglob("Cargo.toml")))
     ):
-        if shutil.which("apt"):
-            apt("pkg-config", "libssl-dev")
-        elif shutil.which("brew"):
-            rc("brew install openssl")
-        else:
-            rc("choco install openssl")
+        return
+    if platform.system() == "Linux":
+        apt("pkg-config", "libssl-dev")
+    elif platform.system() == "Darwin":
+        rc("brew install openssl")
+    else:
+        # https://github.com/sfackler/rust-openssl/blob/master/.github/workflows/ci.yml
+        os.environ["VCPKG_ROOT"] = os.environ["VCPKG_INSTALLATION_ROOT"]
+        rc("vcpkg install openssl:x64-windows-static-md")
+        # rc("choco install openssl strawberryperl")
+        # perl_path = shutil.which("perl")
+        # if perl_path:
+        #     os.environ["PERL"] = perl_path
+        #     os.environ["OPENSSL_SRC_PERL"] = perl_path
 
 
 def install_toolchain():
@@ -295,20 +304,19 @@ def install_toolchain():
 
     binstall("cargo-zigbuild")
 
-    if platform.system() != "Windows":
+    if platform.system() == "Linux" and find("musl"):
         info("install toolchain linkers")
         if find("musl"):
             apt("musl-tools")
             info("installed musl-tools")
-        if find("darwin"):
-            # https://github.com/rust-lang/rust/issues/112501#issuecomment-1682426620
-            # apt("clang")
-            rc(
-                "curl -L https://github.com/roblabla/MacOSX-SDKs/releases/download/13.3/MacOSX13.3.sdk.tar.xz | tar xJ",
-                cwd="/tmp",
-            )
-            rc("export SDKROOT=$(pwd)/MacOSX13.3.sdk/", cwd="/tmp")
-            info("installed clang, MacOSX-SDKs")
+    # https://github.com/rust-lang/rust/issues/112501#issuecomment-1682426620
+    # apt("clang")
+    # rc(
+    #     "curl -L https://github.com/roblabla/MacOSX-SDKs/releases/download/13.3/MacOSX13.3.sdk.tar.xz | tar xJ",
+    #     cwd="/tmp",
+    # )
+    # rc("export SDKROOT=$(pwd)/MacOSX13.3.sdk/", cwd="/tmp")
+    # info("installed clang, MacOSX-SDKs")
 
 
 # region run
@@ -320,9 +328,7 @@ def main():
     fuck_openssl()
     targets = get_input_list("INPUT_TARGETS")
     for target in targets:
-        if ("windows" in target and platform.system() != "Windows") or (
-            "windows" not in target and platform.system() == "Windows"
-        ):
+        if not target_coresponding_to_platform(target):
             info("platform does not match, skip build target.")
             continue
         archive_name = get_output_bin_name(target) + "-" + target
