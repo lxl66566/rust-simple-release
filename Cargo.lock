@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "action-test"
-version = "0.0.1"
+version = "0.1.0"
 
 [[package]]
 name = "addr2line"
@@ -558,7 +558,7 @@ dependencies = [
 
 [[package]]
 name = "openssl-test"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "openssl",
  "reqwest",

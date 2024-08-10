@@ -1,8 +1,8 @@
 # Rust simple release
 
-Extremely simple all-in-one release for small rust project.
+**Extremely simple all-in-one** release for your rust project!
 
-This CI is for small rust project, which doesn't need complex CI/CD. It supports rust workspace, but only allows one package with one binary to build and upload for each time. (request features if you want more bins and packages to build :)
+This CI is for small and middle rust project, which doesn't need complex CI/CD. It supports rust workspace, but only allows build and upload from one package. (request features if you want more packages to build :) And it support to build multi features and bins.
 
 **You don't need to worry about openssl deps, this action will solve it.** Just add `openssl = { version = "0", features = ["vendored"] }` to your `Cargo.toml`.
 
@@ -64,8 +64,8 @@ jobs:
           # choose one package to build
           package: openssl-test
 
-          # choose one binary to build
-          bin: my-action-test
+          # choose bins to build, seperated by comma (allow space). If not set, it will build all bins in the package.
+          bins: my-action-test, my-action-test2
 
           # features to build, seperated by comma (allow space)
           features: test1, test2
@@ -74,7 +74,7 @@ jobs:
           files_to_pack: README.md, LICENSE, assets
 
           # release create options, see https://cli.github.com/manual/gh_release_create
-          release_options: --draft --latest --title 123
+          release_options: --draft --title 123
 
           # GITHUB TOKEN, REQUIRED
           token: ${{ secrets.GH_TOKEN }}

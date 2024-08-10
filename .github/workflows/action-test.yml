@@ -21,7 +21,6 @@ jobs:
         with:
           release_options: --title ${{ github.ref_name }}
           targets: aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl, x86_64-pc-windows-msvc, x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin
-          bin: my-action-test
           features: test1
           files_to_pack: README.md, .github/workflows
           token: ${{ secrets.GH_TOKEN }}
@@ -37,6 +36,7 @@ jobs:
       - name: test build rust project
         uses: lxl66566/rust-simple-release@main
         with:
+          bins: openssl2
           release_options: --title ${{ github.ref_name }}
           package: openssl-test
           targets: aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl, x86_64-pc-windows-msvc, x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin

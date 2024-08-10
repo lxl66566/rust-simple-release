@@ -8,7 +8,7 @@ import tarfile
 import tempfile
 import unittest
 import zipfile
-from functools import reduce
+from functools import reduce, wraps
 from pathlib import Path
 from typing import Callable
 
@@ -89,6 +89,7 @@ def once(func):
     """Runs a function only once."""
     results = {}
 
+    @wraps(func)
     def wrapper(*args, **kwargs):
         if func not in results:
             results[func] = func(*args, **kwargs)
@@ -122,6 +123,10 @@ def cargo_metadata(cwd: str = "."):
 
 
 def create_zip_in_tmp(zip_name: str, files_to_add: list[str]):
+    """
+    create zip file in tmp with given name, and return the path.
+    will add all files in `files_to_add` to the zip file.
+    """
     zip_path = Path(tempfile.gettempdir()) / (zip_name + ".zip")
     with zipfile.ZipFile(zip_path, "w") as zipf:
         for file in files_to_add:
@@ -139,6 +144,10 @@ def create_zip_in_tmp(zip_name: str, files_to_add: list[str]):
 
 
 def create_tar_gz_in_tmp(tar_name: str, files_to_add: list[str]):
+    """
+    create tar.gz file in tmp with given name, and return the path.
+    will add all files in `files_to_add` to the tar file.
+    """
     tar_path = Path(tempfile.gettempdir()) / (tar_name + ".tar.gz")
     with tarfile.open(tar_path, "w:gz") as tar:
         for file in files_to_add:
@@ -156,40 +165,54 @@ def create_tar_gz_in_tmp(tar_name: str, files_to_add: list[str]):
     return tar_path
 
 
-def get_output_bin_name(target: str, extension: bool = True):
+@once
+def get_selected_package_metadata():
     """
-    get the name of output binary. target is to add `.exe` on windows target.
+    get the metadata of selected one package
+    """
+    package_name = get_input("INPUT_PACKAGE")
+    package_meta = next(
+        (
+            x
+            for x in cargo_metadata()["packages"]
+            if not package_name or x["name"] == package_name
+        ),
+        None,
+    )
+    assert package_meta, "package meta could not be none"
+    return package_meta
+
+
+def get_output_bin_names(target: str, extension: bool = True) -> list[str]:
+    """
+    get the names of output binary.
 
     if `extension` is true, it will add `.exe` to bin name if on windows.
     """
-    if bin := get_input("INPUT_BIN"):
-        output_bin_name = bin
+    if bins := get_input_list("INPUT_BINS"):
+        output_bin_names = bins
     else:
-        package_name = get_input("INPUT_PACKAGE")
-        package_meta = next(
-            (
-                x
-                for x in cargo_metadata()["packages"]
-                if not package_name or x["name"] == package_name
-            ),
-            None,
+        output_bin_names = [
+            x["name"]
+            for x in get_selected_package_metadata()["targets"]
+            if x["kind"] == ["bin"]
+        ]
+        assert output_bin_names, "target bins could not be none"
+
+    if extension and "windows" in target.lower():
+        output_bin_names = list(
+            map(lambda x: x + ".exe" if not x.endswith(".exe") else x, output_bin_names)
         )
-        assert package_meta, "package meta could not be none"
-        assert package_meta["name"], "package name could not be none"
-        output_bin_name = Path(package_meta["name"]).name
-    if (
-        extension
-        and "windows" in target.lower()
-        and not output_bin_name.endswith(".exe")
-    ):
-        output_bin_name += ".exe"
-    debug(f"get output bin name: {output_bin_name}")
-    assert output_bin_name, "output bin name could not be none"
-    assert output_bin_name != "", "output bin name could not be empty"
-    return output_bin_name
+
+    debug(f"get output bin names: {output_bin_names}")
+    assert output_bin_names, "output bin names could not be none or empty"
+    return output_bin_names
 
 
 def get_linker_flags_by_target(target: str):
+    """
+    currently not used :(
+    """
     if "aarch" in target:
         if "gnu" in target:
             return "aarch64-linux-gnu-gcc"
@@ -221,8 +244,9 @@ def build_one_target(target: str):
     if target:
         rc(f"rustup target add {target}")
         cmd.append(f"--target {target}")
-    if bin := get_input("INPUT_BIN"):
-        cmd.append(f"--bin {bin}")
+    if bins := get_input_list("INPUT_BINS"):
+        for bin in bins:
+            cmd.append(f"--bin {bin}")
     if features := get_input_list("INPUT_FEATURES"):
         cmd.append(f"--features {",".join(features)}")
     if package := get_input("INPUT_PACKAGE"):
@@ -243,10 +267,13 @@ def pack(name: str, target: str):
     assert format in ["zip", "tar"], "unsupported format"
 
     # https://doc.rust-lang.org/cargo/guide/build-cache.html
-    bin_path = Path("target") / target / "release" / get_output_bin_name(target)
-    debug(f"packing bin_path: `{bin_path}`")
+    bin_paths = [
+        (Path("target") / target / "release" / x) for x in get_output_bin_names(target)
+    ]
+
+    debug(f"packing bin_paths: `{bin_paths}`")
     paths = get_input_list("INPUT_FILES_TO_PACK") or []
-    paths.append(bin_path)
+    paths.extend(bin_paths)
     # dedup
     paths = reduce(lambda re, x: re + [x] if x not in re else re, paths, [])
     debug(f"packing all paths: `{paths}`")
@@ -294,7 +321,7 @@ def retry(func: Callable, times: int = 5):
 
 def upload_files_to_github_release(files: list[Path]):
     ref_name = get_input("GITHUB_REF_NAME")
-    artifacts = " ".join(list(map(str, artifacts_path)))
+    artifacts = " ".join(list(map(str, files)))
 
     # https://github.com/orgs/community/discussions/26686#discussioncomment-3396593
     res = retry(lambda: rc(f"""gh release upload "{ref_name}" {artifacts} --clobber"""))
@@ -379,7 +406,7 @@ def main():
         if not target_coresponding_to_platform(target):
             info("platform does not match, skip build target.")
             continue
-        archive_name = get_output_bin_name(target, False) + "-" + target
+        archive_name = get_selected_package_metadata()["name"] + "-" + target
         build_one_target(target)
         pack(archive_name, target)
     upload_files_to_github_release(artifacts_path)
@@ -396,8 +423,10 @@ class Test(unittest.TestCase):
         assert cargo_metadata()["packages"][0]["version"] == "0.0.1"
 
     def test_get_output_bin_name(self):
-        assert get_output_bin_name("x86_64-linux-musl") == "action-test"
-        # if you want to use `[[bin]] name = "my-action-test"`, please manually specify it.
+        assert get_output_bin_names("x86_64-linux-musl") == [
+            "my-action-test",
+            "my-action-test2",
+        ]
 
     def test_get_input(self):
         os.environ["456123"] = " 1 "
@@ -408,6 +437,7 @@ class Test(unittest.TestCase):
         assert get_input_list(" 456123  ") == ["a", "b", "123", "456"]
 
     def test_pack(self):
-        os.environ["INPUT_BIN"] = "my-action-test"
-        pack("123456", "x86_64-windows_msvc")
-        assert (Path(tempfile.gettempdir()) / "123456.zip").exists()
+        pack("123456", "")
+        assert (Path(tempfile.gettempdir()) / "123456.zip").exists() or (
+            Path(tempfile.gettempdir()) / "123456.tar.gz"
+        ).exists()
