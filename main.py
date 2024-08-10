@@ -156,9 +156,11 @@ def create_tar_gz_in_tmp(tar_name: str, files_to_add: list[str]):
     return tar_path
 
 
-def get_output_bin_name(target: str):
+def get_output_bin_name(target: str, extension: bool = True):
     """
     get the name of output binary. target is to add `.exe` on windows target.
+
+    if `extension` is true, it will add `.exe` to bin name if on windows.
     """
     if bin := get_input("INPUT_BIN"):
         output_bin_name = bin
@@ -175,7 +177,11 @@ def get_output_bin_name(target: str):
         assert package_meta, "package meta could not be none"
         assert package_meta["name"], "package name could not be none"
         output_bin_name = Path(package_meta["name"]).name
-    if "windows" in target.lower() and not output_bin_name.endswith(".exe"):
+    if (
+        extension
+        and "windows" in target.lower()
+        and not output_bin_name.endswith(".exe")
+    ):
         output_bin_name += ".exe"
     debug(f"get output bin name: {output_bin_name}")
     assert output_bin_name, "output bin name could not be none"
@@ -373,7 +379,7 @@ def main():
         if not target_coresponding_to_platform(target):
             info("platform does not match, skip build target.")
             continue
-        archive_name = get_output_bin_name(target) + "-" + target
+        archive_name = get_output_bin_name(target, False) + "-" + target
         build_one_target(target)
         pack(archive_name, target)
     upload_files_to_github_release(artifacts_path)
