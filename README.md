@@ -2,9 +2,9 @@
 
 Extremely simple all-in-one release for small rust project.
 
-**You don't need to worry about openssl deps, this action will solve it.** Just add `openssl = { version = "0", features = ["vendored"] }` to your `Cargo.toml`.
+This CI is for small rust project, which doesn't need complex CI/CD. It supports rust workspace, but only allows one package with one binary to build and upload for each time. (request features if you want more bins and packages to build :)
 
-This CI is for small rust project, which doesn't need complex CI/CD. It supports rust workspace, but only allows one package with one binary to build and upload.
+**You don't need to worry about openssl deps, this action will solve it.** Just add `openssl = { version = "0", features = ["vendored"] }` to your `Cargo.toml`.
 
 If you are using nightly or other toolchains, please add it to `rust-toolchain.toml`.
 
@@ -80,10 +80,11 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
 
         env:
-          # debug level, print more log
+          # debug level, print more logs
           debug: 1
 ```
 
 ## Hint
 
 - Do not setup `sccache`, because it may fail with `cargo-zigbuild` on macos.
+- Now the archive format is not selectable: `zip` for windows and `tar.gz` for other systems.
