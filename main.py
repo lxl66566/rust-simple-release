@@ -343,7 +343,10 @@ def create_release():
             stderr=subprocess.DEVNULL,
         )
     except subprocess.CalledProcessError:
-        rc(f"""gh release create "{ref_name}" {options}""", check=False)
+        cmd = f"""gh release create "{ref_name}" """
+        if options:
+            cmd += options
+        rc(cmd, check=False)
     info(f"""release "{ref_name}" created""")
 
 
