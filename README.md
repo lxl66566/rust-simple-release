@@ -8,7 +8,7 @@ This CI is for small rust project, which doesn't need complex CI/CD. It supports
 
 If you are using nightly or other toolchains, please add it to `rust-toolchain.toml`.
 
-This action will automatically setup rust dev environment, and other tools like cargo-zigbuild. We don't use containers, so if you have other dependencies, just install them before running this action.
+This action will automatically setup rust dev environment, and other tools like `cargo-zigbuild`. We don't use containers, so if you have other dependencies, just install them before running this action.
 
 ## Usage
 
@@ -35,7 +35,7 @@ jobs:
       - name: test build rust project
         uses: lxl66566/rust-simple-release@main
         with:
-          targets: "aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl, x86_64-pc-windows-msvc, x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin"
+          targets: aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl, x86_64-pc-windows-msvc, x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin
           token: ${{ secrets.GH_TOKEN }}
 ```
 
@@ -58,7 +58,7 @@ jobs:
       - name: test build rust project
         uses: lxl66566/rust-simple-release@main
         with:
-          # targets to compile, seperated by comma
+          # targets to compile, seperated by comma (allow space)
           targets: aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl, x86_64-pc-windows-msvc, x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin
 
           # choose one package to build
@@ -67,7 +67,7 @@ jobs:
           # choose one binary to build
           bin: my-action-test
 
-          # features to build, seperated by comma
+          # features to build, seperated by comma (allow space)
           features: test1, test2
 
           # files or folders to pack into release assets, relative path seperated by comma
@@ -78,7 +78,12 @@ jobs:
 
           # GITHUB TOKEN, REQUIRED
           token: ${{ secrets.GH_TOKEN }}
+
         env:
           # debug level, print more log
           debug: 1
 ```
+
+## Hint
+
+- Do not setup `sccache`, because it may fail with `cargo-zigbuild` on macos.

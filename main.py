@@ -217,8 +217,8 @@ def build_one_target(target: str):
         cmd.append(f"--target {target}")
     if bin := get_input("INPUT_BIN"):
         cmd.append(f"--bin {bin}")
-    if features := get_input("INPUT_FEATURES"):
-        cmd.append(f"--features {features}")
+    if features := get_input_list("INPUT_FEATURES"):
+        cmd.append(f"--features {",".join(features)}")
     if package := get_input("INPUT_PACKAGE"):
         cmd.append(f"--package {package}")
     rc(" ".join(cmd))
@@ -237,7 +237,7 @@ def pack(name: str, target: str):
     assert format in ["zip", "tar"], "unsupported format"
 
     # https://doc.rust-lang.org/cargo/guide/build-cache.html
-    bin_path = Path("target") / (target or "release") / get_output_bin_name(target)
+    bin_path = Path("target") / target / "release" / get_output_bin_name(target)
     debug(f"packing bin_path: `{bin_path}`")
     paths = get_input_list("INPUT_FILES_TO_PACK") or []
     paths.append(bin_path)
