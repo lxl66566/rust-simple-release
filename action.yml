@@ -46,7 +46,6 @@ runs:
         python-version: "3.12"
     - uses: dtolnay/rust-toolchain@stable
     - uses: cargo-bins/cargo-binstall@main
-    - uses: mozilla-actions/sccache-action@v0.0.5
     - uses: goto-bus-stop/setup-zig@v2
       if: runner.os != 'Windows'
     # https://github.com/sfackler/rust-openssl/issues/2149#issuecomment-2014064057
@@ -68,5 +67,3 @@ runs:
         GITHUB_REF_NAME: ${{ github.ref_name }}
         GITHUB_TOKEN: ${{ inputs.token }}
         INPUT_RELEASE_OPTIONS: ${{ inputs.release_options }}
-        SCCACHE_GHA_ENABLED: "true"
-        RUSTC_WRAPPER: "sccache"

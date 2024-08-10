@@ -298,22 +298,16 @@ def upload_files_to_github_release(files: list[Path]):
 def create_release():
     options = get_input("INPUT_RELEASE_OPTIONS")
     ref_name = get_input("GITHUB_REF_NAME")
-    # with suppress(subprocess.CalledProcessError):
-    #     # https://cli.github.com/manual/gh_release_view
-    #     rc(
-    #         f"""gh release view "${ref_name}" """,
-    #         stdout=subprocess.DEVNULL,
-    #         stderr=subprocess.DEVNULL,
-    #     )
-    #     # https://cli.github.com/manual/gh_release_delete
-    #     rc(f"""gh release delete "${ref_name}" -y""", check=False)
-
-    res = retry(lambda: rc(f"""gh release create "{ref_name}" {options}"""))
-    if res:
-        info("release created successfully")
-    else:
-        log.error(colored("cannot create release.", "red"))
-        exit(1)
+    try:
+        # https://cli.github.com/manual/gh_release_view
+        rc(
+            f"""gh release view "${ref_name}" """,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError:
+        rc(f"""gh release create "{ref_name}" {options}""", check=False)
+    info(f"""release "{ref_name}" created""")
 
 
 def fuck_openssl():

@@ -8,7 +8,7 @@ This CI is for small rust project, which doesn't need complex CI/CD. It supports
 
 If you are using nightly or other toolchains, please add it to `rust-toolchain.toml`.
 
-This action will automatically setup rust dev environment, and other tools like cargo-zigbuild and sccache. We don't use containers, so if you have other dependencies, just install them before running this action.
+This action will automatically setup rust dev environment, and other tools like cargo-zigbuild. We don't use containers, so if you have other dependencies, just install them before running this action.
 
 ## Usage
 
