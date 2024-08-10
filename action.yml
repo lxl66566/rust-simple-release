@@ -33,6 +33,10 @@ inputs:
 
       If not set this option, the GITHUB_TOKEN environment variable will be used.
     required: true
+  release_options:
+    description: "gh release create command options"
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -42,7 +46,9 @@ runs:
         python-version: "3.12"
     - uses: dtolnay/rust-toolchain@stable
     - uses: cargo-bins/cargo-binstall@main
+    - uses: mozilla-actions/sccache-action@v0.0.5
     - uses: goto-bus-stop/setup-zig@v2
+      if: runner.os != 'Windows'
     # https://github.com/sfackler/rust-openssl/issues/2149#issuecomment-2014064057
     - name: Set Perl environment variables
       if: runner.os == 'Windows'
@@ -61,3 +67,6 @@ runs:
         INPUT_FILES_TO_PACK: ${{ inputs.files_to_pack }}
         GITHUB_REF_NAME: ${{ github.ref_name }}
         GITHUB_TOKEN: ${{ inputs.token }}
+        INPUT_RELEASE_OPTIONS: ${{ inputs.release_options }}
+        SCCACHE_GHA_ENABLED: "true"
+        RUSTC_WRAPPER: "sccache"

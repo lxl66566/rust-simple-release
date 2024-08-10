@@ -10,6 +10,7 @@ import unittest
 import zipfile
 from functools import reduce
 from pathlib import Path
+from typing import Callable
 
 TARGET_DIR = "target/rust-release-action"
 artifacts_path = []
@@ -202,7 +203,13 @@ def build_one_target(target: str):
     rc(f"rustup target add {target}")
     # cmd.append(f"""RUSTFLAGS="-C linker={get_linker_flags_by_target(target)}" """)
 
-    cmd.append("cargo zigbuild --release")
+    # do not use zigbuild on windows: unable to spawn zig.exe: InvalidWtf8 error: UnableToSpawnSelf
+    if platform.system() != "Windows":
+        build_cmd = "zigbuild"
+    else:
+        build_cmd = "build"
+
+    cmd.append(f"cargo {build_cmd} --release")
     if target:
         rc(f"rustup target add {target}")
         cmd.append(f"--target {target}")
@@ -260,18 +267,53 @@ def target_coresponding_to_platform(target: str):
     )
 
 
+def retry(func: Callable, times: int = 5):
+    """
+    retry function for a few times.
+
+    Return `True` if `func` exec successfully, otherwise return `False`.
+    """
+    for _ in range(0, times):
+        try:
+            func()
+            return True
+        except:
+            pass
+    return False
+
+
 def upload_files_to_github_release(files: list[Path]):
     ref_name = get_input("GITHUB_REF_NAME")
     artifacts = " ".join(list(map(str, artifacts_path)))
-    for retry in range(0, 5):
-        try:
-            # https://github.com/orgs/community/discussions/26686#discussioncomment-3396593
-            rc(f"""gh release upload "{ref_name}" {artifacts} --clobber""")
-            info("file upload successfully")
-            return
-        except:
-            pass
-    log.error(colored("cannot upload file.", "red"))
+
+    # https://github.com/orgs/community/discussions/26686#discussioncomment-3396593
+    res = retry(lambda: rc(f"""gh release upload "{ref_name}" {artifacts} --clobber"""))
+    if res:
+        info("file upload successfully")
+    else:
+        log.error(colored("cannot upload file.", "red"))
+        exit(1)
+
+
+def create_release():
+    options = get_input("INPUT_RELEASE_OPTIONS")
+    ref_name = get_input("GITHUB_REF_NAME")
+    # with suppress(subprocess.CalledProcessError):
+    #     # https://cli.github.com/manual/gh_release_view
+    #     rc(
+    #         f"""gh release view "${ref_name}" """,
+    #         stdout=subprocess.DEVNULL,
+    #         stderr=subprocess.DEVNULL,
+    #     )
+    #     # https://cli.github.com/manual/gh_release_delete
+    #     rc(f"""gh release delete "${ref_name}" -y""", check=False)
+
+    res = retry(lambda: rc(f"""gh release create "{ref_name}" {options}"""))
+    if res:
+        info("release created successfully")
+    else:
+        log.error(colored("cannot create release.", "red"))
+        exit(1)
 
 
 def fuck_openssl():
@@ -302,7 +344,8 @@ def install_toolchain():
     def find(s):
         return s in input_targets
 
-    binstall("cargo-zigbuild")
+    if platform.system() != "Windows":
+        binstall("cargo-zigbuild")
 
     if platform.system() == "Linux" and find("musl"):
         info("install toolchain linkers")
@@ -324,6 +367,7 @@ def install_toolchain():
 
 def main():
     log.basicConfig(level=log.DEBUG if debug_mode() else log.INFO)
+    create_release()
     install_toolchain()
     fuck_openssl()
     targets = get_input_list("INPUT_TARGETS")
