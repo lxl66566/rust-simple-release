@@ -168,16 +168,18 @@ def get_output_bin_name(target: str):
             (
                 x
                 for x in cargo_metadata()["packages"]
-                if package_name is None or x["name"] == package_name
+                if not package_name or x["name"] == package_name
             ),
             None,
         )
         assert package_meta, "package meta could not be none"
         assert package_meta["name"], "package name could not be none"
         output_bin_name = Path(package_meta["name"]).name
-    if "windows" in target.lower():
+    if "windows" in target.lower() and not output_bin_name.endswith(".exe"):
         output_bin_name += ".exe"
     debug(f"get output bin name: {output_bin_name}")
+    assert output_bin_name, "output bin name could not be none"
+    assert output_bin_name != "", "output bin name could not be empty"
     return output_bin_name
 
 
@@ -235,11 +237,13 @@ def pack(name: str, target: str):
     assert format in ["zip", "tar"], "unsupported format"
 
     # https://doc.rust-lang.org/cargo/guide/build-cache.html
-    bin_path = Path("target") / target or "release" / get_output_bin_name(target)
+    bin_path = Path("target") / (target or "release") / get_output_bin_name(target)
+    debug(f"packing bin_path: `{bin_path}`")
     paths = get_input_list("INPUT_FILES_TO_PACK") or []
     paths.append(bin_path)
-    # unique
+    # dedup
     paths = reduce(lambda re, x: re + [x] if x not in re else re, paths, [])
+    debug(f"packing all paths: `{paths}`")
     if format == "zip":
         artifacts_path.append(create_zip_in_tmp(name, paths))
     else:
