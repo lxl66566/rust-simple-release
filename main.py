@@ -8,12 +8,12 @@ import tarfile
 import tempfile
 import unittest
 import zipfile
-from functools import reduce, wraps
+from functools import wraps
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 TARGET_DIR = "target/rust-release-action"
-artifacts_path = []
+artifacts_path: list[Path] = []
 
 
 def debug_mode():
@@ -28,7 +28,7 @@ def get_input(name: str):
         return None
 
 
-def get_input_list(name: str):
+def get_input_list(name: str) -> list[str]:
     """
     >>> import os
     >>> os.environ["456123"] = "a,b,123,456"
@@ -39,18 +39,20 @@ def get_input_list(name: str):
     if temp:
         return list(map(lambda x: x.strip(), temp.split(",")))
     else:
-        return None
+        return []
 
 
-def info(s):
+def info(s: str):
     log.info(" " + colored(s, "green"))
 
 
-def debug(s):
+def debug(s: str):
     log.debug(" " + colored(s, "blue"))
 
 
-def rc(s: str, **kwargs):
+def rc(
+    s: str, **kwargs: Any
+) -> subprocess.CompletedProcess[Optional[Union[bytes, str]]]:
     """
     rc means run with check.
     """
@@ -58,7 +60,7 @@ def rc(s: str, **kwargs):
     kwargs.setdefault("check", True)
     kwargs.setdefault("shell", True)
     try:
-        result = subprocess.run(s, **kwargs)
+        result: Any = subprocess.run(s, **kwargs)
         return result
     except subprocess.CalledProcessError as e:
         log.error(
@@ -85,12 +87,12 @@ def colored(msg: str, color: str):
     return f"{prefix}{msg}\033[0m"
 
 
-def once(func):
+def once(func: Callable[..., Any]) -> Callable[..., Any]:
     """Runs a function only once."""
-    results = {}
+    results: Dict[Callable[..., Any], Any] = {}
 
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Tuple[Any, ...], **kwargs: Dict[str, Any]) -> Any:
         if func not in results:
             results[func] = func(*args, **kwargs)
         return results[func]
@@ -116,13 +118,16 @@ def cargo_metadata(cwd: str = "."):
     """
     get metadata in Cargo.toml
     """
-    metadata = rc(
-        "cargo metadata --format-version 1 --no-deps", capture_output=True, cwd=cwd
-    ).stdout.strip()
+    metadata = (
+        rc(
+            "cargo metadata --format-version 1 --no-deps", capture_output=True, cwd=cwd
+        ).stdout
+        or ""
+    ).strip()
     return json.loads(metadata)
 
 
-def create_zip_in_tmp(zip_name: str, files_to_add: list[str]):
+def create_zip_in_tmp(zip_name: str, files_to_add: list[Path]) -> Path:
     """
     create zip file in tmp with given name, and return the path.
     will add all files in `files_to_add` to the zip file.
@@ -131,7 +136,7 @@ def create_zip_in_tmp(zip_name: str, files_to_add: list[str]):
     with zipfile.ZipFile(zip_path, "w") as zipf:
         for file in files_to_add:
             if os.path.isdir(file):
-                for foldername, subfolders, filenames in os.walk(file):
+                for foldername, _subfolders, filenames in os.walk(file):
                     for filename in filenames:
                         file_path = os.path.join(foldername, filename)
                         zipf.write(
@@ -143,7 +148,7 @@ def create_zip_in_tmp(zip_name: str, files_to_add: list[str]):
     return zip_path
 
 
-def create_tar_gz_in_tmp(tar_name: str, files_to_add: list[str]):
+def create_tar_gz_in_tmp(tar_name: str, files_to_add: list[Path]) -> Path:
     """
     create tar.gz file in tmp with given name, and return the path.
     will add all files in `files_to_add` to the tar file.
@@ -152,7 +157,7 @@ def create_tar_gz_in_tmp(tar_name: str, files_to_add: list[str]):
     with tarfile.open(tar_path, "w:gz") as tar:
         for file in files_to_add:
             if os.path.isdir(file):
-                for foldername, subfolders, filenames in os.walk(file):
+                for foldername, _subfolders, filenames in os.walk(file):
                     for filename in filenames:
                         file_path = os.path.join(foldername, filename)
                         relative_path = os.path.relpath(
@@ -190,7 +195,7 @@ def get_output_bin_names(target: str, extension: bool = True) -> list[str]:
     if `extension` is true, it will add `.exe` to bin name if on windows.
     """
     if bins := get_input_list("INPUT_BINS"):
-        output_bin_names = bins
+        output_bin_names: list[str] = bins
     else:
         output_bin_names = [
             x["name"]
@@ -230,7 +235,7 @@ def get_linker_flags_by_target(target: str):
 
 
 def build_one_target(target: str):
-    cmd = []
+    cmd: list[str] = []
     rc(f"rustup target add {target}")
     # cmd.append(f"""RUSTFLAGS="-C linker={get_linker_flags_by_target(target)}" """)
 
@@ -272,10 +277,10 @@ def pack(name: str, target: str):
     ]
 
     debug(f"packing bin_paths: `{bin_paths}`")
-    paths = get_input_list("INPUT_FILES_TO_PACK") or []
+    paths = list(map(Path, get_input_list("INPUT_FILES_TO_PACK") or []))
     paths.extend(bin_paths)
     # dedup
-    paths = reduce(lambda re, x: re + [x] if x not in re else re, paths, [])
+    paths: list[Path] = list(set(paths))
     debug(f"packing all paths: `{paths}`")
     if format == "zip":
         artifacts_path.append(create_zip_in_tmp(name, paths))
@@ -304,7 +309,7 @@ def target_coresponding_to_platform(target: str):
     )
 
 
-def retry(func: Callable, times: int = 5):
+def retry(func: Callable[..., Any], times: int = 5):
     """
     retry function for a few times.
 
@@ -373,9 +378,9 @@ def fuck_openssl():
 
 
 def install_toolchain():
-    input_targets = get_input("INPUT_TARGETS")
+    input_targets = get_input("INPUT_TARGETS") or ""
 
-    def find(s):
+    def find(s: str):
         return s in input_targets
 
     if platform.system() != "Windows":
