@@ -42,6 +42,10 @@ def get_input_list(name: str) -> list[str]:
         return []
 
 
+def warn(s: str):
+    log.warning(" " + colored(s, "yellow"))
+
+
 def info(s: str):
     log.info(" " + colored(s, "green"))
 
@@ -127,6 +131,33 @@ def cargo_metadata(cwd: str = "."):
     return json.loads(metadata)
 
 
+class System:
+    """
+    get system type from target triple or current platform
+    """
+
+    def __init__(self, target: str | None = None):
+        if not target:
+            self.target = platform.system().lower()
+        else:
+            self.target = target.rsplit("-", 2)[-2].lower()
+
+    def is_windows(self) -> bool:
+        return self.target == "windows"
+
+    def is_macos(self) -> bool:
+        return self.target in ["macos", "darwin", "apple"]
+
+    def is_linux(self) -> bool:
+        return self.target == "linux"
+
+    def __eq__(self, value: object) -> bool:
+        if isinstance(value, System):
+            return (self.is_macos() and value.is_macos()) or self.target == value.target
+        else:
+            return self.target == value
+
+
 def create_zip_in_tmp(zip_name: str, files_to_add: list[Path]) -> Path:
     """
     create zip file in tmp with given name, and return the path.
@@ -170,12 +201,11 @@ def create_tar_gz_in_tmp(tar_name: str, files_to_add: list[Path]) -> Path:
     return tar_path
 
 
-@once
-def get_selected_package_metadata():
+def get_selected_package_metadata(package: str | None = None):
     """
     get the metadata of selected one package
     """
-    package_name = get_input("INPUT_PACKAGE")
+    package_name = package or get_input("INPUT_PACKAGE")
     package_meta = next(
         (
             x
@@ -185,62 +215,110 @@ def get_selected_package_metadata():
         None,
     )
     assert package_meta, "package meta could not be none"
+    debug(f"get package meta: {package_meta}")
     return package_meta
 
 
-def get_output_bin_names(target: str, extension: bool = True) -> list[str]:
+def get_output_filenames(target: str, package: str | None = None) -> list[str]:
     """
-    get the names of output binary.
+    get the filenames of output files, including bins and lib.
 
-    if `extension` is true, it will add `.exe` to bin name if on windows.
+    This function will deal with default, which the `INPUT_BINS` and `INPUT_LIB` are not set.
+    In this case, it will only returns filenames of bins, and the lib will be ignored.
+
+    For bins, it will append `.exe` to bin names if on windows.
     """
+
+    meta_targets = get_selected_package_metadata(package)["targets"]
+    lib_meta = next(
+        filter(lambda x: "lib" in x["kind"][0], meta_targets),
+        None,
+    )
+    bin_names = [x["name"] for x in meta_targets if x["kind"] == ["bin"]]
+
+    output_filenames = []
     if bins := get_input_list("INPUT_BINS"):
-        output_bin_names: list[str] = bins
+        assert set(bins) <= set(
+            bin_names
+        ), "input bins must be a subset of actual bin names"
+        output_filenames.extend(set(bins))
     else:
-        output_bin_names = [
-            x["name"]
-            for x in get_selected_package_metadata()["targets"]
-            if x["kind"] == ["bin"]
-        ]
-        assert output_bin_names, "target bins could not be none"
-
-    if extension and "windows" in target.lower():
-        output_bin_names = list(
-            map(lambda x: x + ".exe" if not x.endswith(".exe") else x, output_bin_names)
+        output_filenames.extend(bin_names)
+    if System(target).is_windows():
+        output_filenames = list(
+            map(
+                lambda x: x + ".exe" if not x.endswith(".exe") else x,
+                output_filenames,
+            )
         )
 
-    debug(f"get output bin names: {output_bin_names}")
-    assert output_bin_names, "output bin names could not be none or empty"
-    return output_bin_names
+    if not output_filenames:
+        warn("no bins got above, will try to add lib")
+
+    # specified INPUT_LIB or no bins got above, then we need to add lib
+    if get_input("INPUT_LIB") or not output_filenames:
+        assert lib_meta, "lib target not found in this package."
+        lib_name = lib_meta["name"]
+        lib_type = lib_meta["crate_types"][0]
+        output_lib_name: str
+        # ref:
+        # - https://rustcc.cn/article?id=98b96e69-7a5f-4bba-a38e-35bdd7a0a7dd
+        # - https://chatgpt.com/share/562dd3ab-7d92-48c0-bb0e-68e48c8f53c4
+        match lib_type:
+            case "staticlib":
+                if System(target).is_windows():
+                    output_lib_name = f"{lib_name}.lib"
+                else:
+                    output_lib_name = f"lib{lib_name}.a"
+            case "cdylib":
+                if System(target).is_windows():
+                    output_lib_name = f"{lib_name}.dll"
+                elif System(target).is_linux():
+                    output_lib_name = f"lib{lib_name}.so"
+                else:
+                    output_lib_name = f"lib{lib_name}.dylib"
+            case "rlib" | "lib":
+                output_lib_name = f"{lib_name}.rlib"
+            case _:
+                raise ValueError(f"unknown lib type: {lib_type}")
+
+        output_filenames.append(output_lib_name)
+
+    debug(f"get output filenames: {output_filenames}")
+    assert output_filenames, "output filenames could not be none or empty"
+    return output_filenames
 
 
-def get_linker_flags_by_target(target: str):
-    """
-    currently not used :(
-    """
-    if "aarch" in target:
-        if "gnu" in target:
-            return "aarch64-linux-gnu-gcc"
-        if "musl" in target:
-            return "aarch64-linux-musl-gcc"
-    if "windows" in target:
-        return "x86_64-w64-mingw32-gcc"
-    if "x86_64" in target:
-        if "musl" in target:
-            return "musl-gcc"
-        else:
-            return "gcc"
-    if "darwin" in target:
-        return "rust-lld"
+# def get_linker_flags_by_target(target: str):
+#     """
+#     currently not used :(
+#     """
+#     if "aarch" in target:
+#         if "gnu" in target:
+#             return "aarch64-linux-gnu-gcc"
+#         if "musl" in target:
+#             return "aarch64-linux-musl-gcc"
+#     if "windows" in target:
+#         return "x86_64-w64-mingw32-gcc"
+#     if "x86_64" in target:
+#         if "musl" in target:
+#             return "musl-gcc"
+#         else:
+#             return "gcc"
+#     if "darwin" in target:
+#         return "rust-lld"
 
 
 def build_one_target(target: str):
+    """
+    build one target and pack it.
+    """
     cmd: list[str] = []
     rc(f"rustup target add {target}")
     # cmd.append(f"""RUSTFLAGS="-C linker={get_linker_flags_by_target(target)}" """)
 
     # do not use zigbuild on windows: unable to spawn zig.exe: InvalidWtf8 error: UnableToSpawnSelf
-    if platform.system() != "Windows":
+    if not System().is_windows():
         build_cmd = "zigbuild"
     else:
         build_cmd = "build"
@@ -252,6 +330,8 @@ def build_one_target(target: str):
     if bins := get_input_list("INPUT_BINS"):
         for bin in bins:
             cmd.append(f"--bin {bin}")
+    if _ := get_input("INPUT_LIB"):
+        cmd.append("--lib")
     if features := get_input_list("INPUT_FEATURES"):
         cmd.append(f"--features {",".join(features)}")
     if package := get_input("INPUT_PACKAGE"):
@@ -259,26 +339,45 @@ def build_one_target(target: str):
     rc(" ".join(cmd))
     info(f"target {target} build success")
 
+    archive_name = get_selected_package_metadata()["name"] + "-" + target
+    pack(archive_name, target)
 
-def pack(name: str, target: str):
+    info(f"target {target} packed")
+
+
+def pack(
+    name: str,
+    target: str | None,
+    package: str | None = None,
+    bin: bool = False,
+    lib: bool = False,
+):
     """
     compress the binary.
 
     `name`: the archive name (without extension). ex. `git-se-aarch64-apple-darwin.tar.gz`
     `target`: the build target
+    `package`: the package name
+    `bin`: whether to pack binary output
+    `lib`: whether to pack library output
     """
     global artifacts_path
+    assert bin or lib, "bin and lib cannot be both False"
     format = target_to_archive_format(target)
     assert format in ["zip", "tar"], "unsupported format"
 
-    # https://doc.rust-lang.org/cargo/guide/build-cache.html
-    bin_paths = [
-        (Path("target") / target / "release" / x) for x in get_output_bin_names(target)
-    ]
+    if target is None:
+        target = ""
 
-    debug(f"packing bin_paths: `{bin_paths}`")
     paths = list(map(Path, get_input_list("INPUT_FILES_TO_PACK") or []))
-    paths.extend(bin_paths)
+    paths.extend(
+        [
+            (Path("target") / target / "release" / x)
+            for x in get_output_filenames(target, package=package)
+        ]
+    )
+
+    debug(f"packing paths: `{paths}`")
     # dedup
     paths: list[Path] = list(set(paths))
     debug(f"packing all paths: `{paths}`")
@@ -289,11 +388,11 @@ def pack(name: str, target: str):
     info("files packed")
 
 
-def target_to_archive_format(target: str):
+def target_to_archive_format(target: str | None):
     """
     get archive format from a target. available format: ["zip", "tar"]
     """
-    if "windows" in target.lower():
+    if System(target).is_windows():
         ext = "zip"
     else:
         ext = "tar"
@@ -302,11 +401,7 @@ def target_to_archive_format(target: str):
 
 
 def target_coresponding_to_platform(target: str):
-    return (
-        (platform.system() == "Windows" and "windows" in target)
-        or (platform.system() == "Darwin" and "darwin" in target)
-        or (platform.system() == "Linux" and "linux" in target)
-    )
+    return System() == System(target)
 
 
 def retry(func: Callable[..., Any], times: int = 5):
@@ -362,9 +457,9 @@ def fuck_openssl():
         or any(map(lambda x: "openssl" in x.read_text(), Path(".").rglob("Cargo.toml")))
     ):
         return
-    if platform.system() == "Linux":
+    if System().is_linux():
         apt("pkg-config", "libssl-dev")
-    elif platform.system() == "Darwin":
+    elif System().is_macos():
         rc("brew install openssl")
     else:
         # https://github.com/sfackler/rust-openssl/blob/master/.github/workflows/ci.yml
@@ -383,10 +478,10 @@ def install_toolchain():
     def find(s: str):
         return s in input_targets
 
-    if platform.system() != "Windows":
+    if not System().is_windows():
         binstall("cargo-zigbuild")
 
-    if platform.system() == "Linux" and find("musl"):
+    if System().is_linux() and find("musl"):
         info("install toolchain linkers")
         if find("musl"):
             apt("musl-tools")
@@ -414,9 +509,7 @@ def main():
         if not target_coresponding_to_platform(target):
             info("platform does not match, skip build target.")
             continue
-        archive_name = get_selected_package_metadata()["name"] + "-" + target
         build_one_target(target)
-        pack(archive_name, target)
     upload_files_to_github_release(artifacts_path)
 
 
@@ -428,13 +521,7 @@ if __name__ == "__main__":
 
 class Test(unittest.TestCase):
     def test_cargo_metadata(self):
-        assert cargo_metadata()["packages"][0]["version"] == "0.0.1"
-
-    def test_get_output_bin_name(self):
-        assert get_output_bin_names("x86_64-linux-musl") == [
-            "my-action-test",
-            "my-action-test2",
-        ]
+        assert cargo_metadata()["version"] == 1
 
     def test_get_input(self):
         os.environ["456123"] = " 1 "
@@ -445,7 +532,30 @@ class Test(unittest.TestCase):
         assert get_input_list(" 456123  ") == ["a", "b", "123", "456"]
 
     def test_pack(self):
-        pack("123456", "")
+        pack("123456", "", package="action-test", bin=True)
         assert (Path(tempfile.gettempdir()) / "123456.zip").exists() or (
             Path(tempfile.gettempdir()) / "123456.tar.gz"
         ).exists()
+
+    def test_get_selected_package_metadata(self):
+        assert get_selected_package_metadata("action-test")["name"] == "action-test"
+
+    def test_System(self):
+        assert System("x86_64-unknown-linux-gnu").is_linux()
+        assert System("x86_64-apple-darwin").is_macos()
+        assert System("x86_64-pc-windows-msvc").is_windows()
+        assert System("x86_64-pc-windows-msvc") == System("i686-pc-windows-msvc")
+        assert System("x86_64-unknown-linux-gnu") == System("aarch64-unknown-linux-gnu")
+        assert not System("x86_64-unknown-linux-gnu") == System("x86_64-apple-darwin")
+        assert not System("x86_64-pc-windows-msvc") == System(
+            "x86_64-unknown-linux-gnu"
+        )
+
+    def test_get_output_filename(self):
+        assert get_output_filenames("x86_64-linux-musl", package="action-test") == [
+            "my-action-test",
+            "my-action-test2",
+        ]
+        assert get_output_filenames(
+            "aarch64-unknown-linux-gnu", package="lib_test"
+        ) == ["liblib_test.so"]

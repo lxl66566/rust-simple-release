@@ -19,6 +19,10 @@ inputs:
     description: "Binary output names, split by comma(,). If not set, it will build all bins in the current package."
     required: false
     default: ""
+  lib:
+    description: "whether to build lib in the current package"
+    required: false
+    default: ""
   features:
     description: "features to build, split by comma(,)"
     required: false
@@ -62,6 +66,7 @@ runs:
         INPUT_PACKAGE: ${{ inputs.package }}
         INPUT_TARGETS: ${{ inputs.targets }}
         INPUT_BINS: ${{ inputs.bins }}
+        INPUT_LIB: ${{ inputs.lib }}
         INPUT_FEATURES: ${{ inputs.features }}
         INPUT_FILES_TO_PACK: ${{ inputs.files_to_pack }}
         GITHUB_REF_NAME: ${{ github.ref_name }}
