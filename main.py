@@ -219,6 +219,33 @@ def get_selected_package_metadata(package: str | None = None):
     return package_meta
 
 
+def get_lib_meta(package: str | None = None) -> Any | None:
+    """
+    get the lib target metadata of selected one package
+    """
+    temp = next(
+        filter(
+            lambda x: "lib" in x["kind"][0],
+            get_selected_package_metadata(package)["targets"],
+        ),
+        None,
+    )
+    return temp
+
+
+def get_bin_metas(package: str | None = None) -> list[Any]:
+    """
+    get the bin target metadata of selected one package
+    """
+    temp = list(
+        filter(
+            lambda x: "bin" == x["kind"][0],
+            get_selected_package_metadata(package)["targets"],
+        )
+    )
+    return temp
+
+
 def get_output_filenames(target: str, package: str | None = None) -> list[str]:
     """
     get the filenames of output files, including bins and lib.
@@ -229,12 +256,8 @@ def get_output_filenames(target: str, package: str | None = None) -> list[str]:
     For bins, it will append `.exe` to bin names if on windows.
     """
 
-    meta_targets = get_selected_package_metadata(package)["targets"]
-    lib_meta = next(
-        filter(lambda x: "lib" in x["kind"][0], meta_targets),
-        None,
-    )
-    bin_names = [x["name"] for x in meta_targets if x["kind"] == ["bin"]]
+    lib_meta = get_lib_meta(package)
+    bin_names = [x["name"] for x in get_bin_metas(package)]
 
     output_filenames = []
     if bins := get_input_list("INPUT_BINS"):
@@ -309,13 +332,32 @@ def get_output_filenames(target: str, package: str | None = None) -> list[str]:
 #         return "rust-lld"
 
 
+def create_flags(
+    target: str,
+    package: str | None = None,
+) -> str | None:
+    """
+    create flags for cargo build
+    """
+
+    # https://github.com/rust-lang/cargo/issues/8607
+    if meta := get_lib_meta(package):
+        if "musl" in target and meta["crate_types"][0] in ["cdylib", "dylib"]:
+            return "-C target-feature=-crt-static"
+
+    return None
+
+
 def build_one_target(target: str):
     """
     build one target and pack it.
     """
     cmd: list[str] = []
+    build_env = os.environ.copy()
     rc(f"rustup target add {target}")
-    # cmd.append(f"""RUSTFLAGS="-C linker={get_linker_flags_by_target(target)}" """)
+
+    if flag := create_flags(target):
+        build_env["RUSTFLAGS"] = flag
 
     # do not use zigbuild on windows: unable to spawn zig.exe: InvalidWtf8 error: UnableToSpawnSelf
     if not System().is_windows():
@@ -336,7 +378,7 @@ def build_one_target(target: str):
         cmd.append(f"--features {",".join(features)}")
     if package := get_input("INPUT_PACKAGE"):
         cmd.append(f"--package {package}")
-    rc(" ".join(cmd))
+    rc(" ".join(cmd), env=build_env)
     info(f"target {target} build success")
 
     archive_name = get_selected_package_metadata()["name"] + "-" + target
@@ -349,8 +391,6 @@ def pack(
     name: str,
     target: str | None,
     package: str | None = None,
-    bin: bool = False,
-    lib: bool = False,
 ):
     """
     compress the binary.
@@ -358,11 +398,8 @@ def pack(
     `name`: the archive name (without extension). ex. `git-se-aarch64-apple-darwin.tar.gz`
     `target`: the build target
     `package`: the package name
-    `bin`: whether to pack binary output
-    `lib`: whether to pack library output
     """
     global artifacts_path
-    assert bin or lib, "bin and lib cannot be both False"
     format = target_to_archive_format(target)
     assert format in ["zip", "tar"], "unsupported format"
 
@@ -371,16 +408,17 @@ def pack(
 
     paths = list(map(Path, get_input_list("INPUT_FILES_TO_PACK") or []))
     paths.extend(
-        [
-            (Path("target") / target / "release" / x)
-            for x in get_output_filenames(target, package=package)
-        ]
+        map(
+            lambda x: (Path("target") / target / "release" / x),
+            get_output_filenames(target, package=package),
+        )
     )
 
-    debug(f"packing paths: `{paths}`")
     # dedup
     paths: list[Path] = list(set(paths))
-    debug(f"packing all paths: `{paths}`")
+    info(f"packing paths: `{paths}`")
+    assert len(paths) > 0, "no files to pack"
+
     if format == "zip":
         artifacts_path.append(create_zip_in_tmp(name, paths))
     else:
@@ -532,7 +570,7 @@ class Test(unittest.TestCase):
         assert get_input_list(" 456123  ") == ["a", "b", "123", "456"]
 
     def test_pack(self):
-        pack("123456", "", package="action-test", bin=True)
+        pack("123456", "", package="action-test")
         assert (Path(tempfile.gettempdir()) / "123456.zip").exists() or (
             Path(tempfile.gettempdir()) / "123456.tar.gz"
         ).exists()
