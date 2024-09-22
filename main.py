@@ -476,7 +476,7 @@ def create_release():
     try:
         # https://cli.github.com/manual/gh_release_view
         rc(
-            f"""gh release view "${ref_name}" """,
+            f"""gh release view "{ref_name}" """,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
