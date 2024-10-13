@@ -50,8 +50,11 @@ runs:
         python-version: "3.12"
     - uses: dtolnay/rust-toolchain@stable
     - uses: cargo-bins/cargo-binstall@main
+    - name: Setup sccache-cache
+      uses: mozilla-actions/sccache-action@v0.0.6
+
     - uses: goto-bus-stop/setup-zig@v2
-      if: runner.os != 'Windows'
+      if: runner.os != 'Windows' && runner.os != 'macOS'
     # https://github.com/sfackler/rust-openssl/issues/2149#issuecomment-2014064057
     - name: Set Perl environment variables
       if: runner.os == 'Windows'
@@ -72,3 +75,5 @@ runs:
         GITHUB_REF_NAME: ${{ github.ref_name }}
         GITHUB_TOKEN: ${{ inputs.token }}
         INPUT_RELEASE_OPTIONS: ${{ inputs.release_options }}
+        SCCACHE_GHA_ENABLED: "true"
+        RUSTC_WRAPPER: "sccache"

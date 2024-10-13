@@ -96,7 +96,7 @@ jobs:
 
 ## 提示
 
-- 不要设置 `sccache`，因为在 macos 上使用 `cargo-zigbuild` 时可能会失败。
+- 自动使用 [sccache](https://github.com/Mozilla-Actions/sccache-action)，无需重复设置
 - 目前无法选择打包格式： 在 windows 上是 `zip`，在其他系统上是 `tar.gz`。(如果希望更改打包格式，请提 issue)
 
 ## License

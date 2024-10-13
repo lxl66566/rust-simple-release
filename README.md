@@ -97,7 +97,7 @@ jobs:
 
 ## Hint
 
-- Do not setup `sccache`, because it may fail with `cargo-zigbuild` on macos.
+- automatically uses [sccache](https://github.com/Mozilla-Actions/sccache-action), no need to set twice
 - Now the archive format is not choosable: `zip` for windows and `tar.gz` for other systems. (request a feature if you want to change it :)
 
 ## License
