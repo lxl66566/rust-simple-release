@@ -360,7 +360,8 @@ def build_one_target(target: str):
         build_env["RUSTFLAGS"] = flag
 
     # do not use zigbuild on windows: unable to spawn zig.exe: InvalidWtf8 error: UnableToSpawnSelf
-    if not System().is_windows():
+    # do not use zigbuild on macos: https://github.com/rust-cross/cargo-zigbuild/issues/275
+    if not System().is_windows() and not System().is_macos():
         build_cmd = "zigbuild"
     else:
         build_cmd = "build"
