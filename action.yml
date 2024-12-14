@@ -50,8 +50,8 @@ runs:
         python-version: "3.12"
     - uses: dtolnay/rust-toolchain@stable
     - uses: cargo-bins/cargo-binstall@main
-    - name: Setup sccache-cache
-      uses: mozilla-actions/sccache-action@v0.0.6
+    # - name: Setup sccache-cache
+    #   uses: mozilla-actions/sccache-action@v0.0.7
 
     # do not use nightly zig: https://github.com/rust-cross/cargo-zigbuild/issues/290
     - uses: mlugg/setup-zig@v1
@@ -76,5 +76,6 @@ runs:
         GITHUB_REF_NAME: ${{ github.ref_name }}
         GITHUB_TOKEN: ${{ inputs.token }}
         INPUT_RELEASE_OPTIONS: ${{ inputs.release_options }}
-        SCCACHE_GHA_ENABLED: "true"
-        RUSTC_WRAPPER: "sccache"
+        # Cannot compile zstd-sys on ubuntu-latest: `SCCACHE_START_SERVER=1` can't be used with other commands
+        # SCCACHE_GHA_ENABLED: true
+        # RUSTC_WRAPPER: "sccache"
