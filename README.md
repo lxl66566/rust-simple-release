@@ -6,7 +6,7 @@ English | [简体中文](./docs/README.zh-CN.md)
 
 This CI is for small and middle rust project, which doesn't need complex CI/CD. It supports rust workspace, but only allows build and upload from one package. (request features if you want more packages to build :) And it supports building multi features, bins and lib.
 
-**You don't need to worry about openssl deps, this action will solve it.** Just add `openssl = { version = "0", features = ["vendored"] }` to your `Cargo.toml`. (`vendored` is necessary)
+**You don't need to worry about openssl deps, this action will solve it.** This action will automatically detect openssl, and add `vendored` feature.
 
 If you are using nightly or other channels, please add it to `rust-toolchain.toml`.
 

@@ -64,6 +64,11 @@ runs:
       run: |
         echo "PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
         echo "OPENSSL_SRC_PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+    - name: install "toml" python package
+      shell: bash
+      run: pip install toml
+
     - shell: bash
       run: python "${GITHUB_ACTION_PATH:?}/main.py"
       env:

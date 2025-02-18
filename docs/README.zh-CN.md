@@ -6,7 +6,7 @@
 
 此 CI 适用于不需要复杂 CI/CD 的中小型 rust 项目。它支持 rust workspace，但一次只允许从一个 package 构建和上传。（如果您想构建更多 package，请开 issue 进行 feature request）它还支持声明 features，bins 和 lib 的任意组合。
 
-**您无需担心 openssl 造成的问题，此 action 已帮您解决。** 只需启用 `vendored` feature（将 `openssl = { version = "0", features = ["vendored"] }` 添加到您的 `Cargo.toml`）即可。
+**您无需担心 openssl 造成的问题，此 action 已帮您解决。** action 会自动检测 openssl，并添加 `vendored` feature。
 
 如果您使用 nightly 或其他 channels，请将其添加到 `rust-toolchain.toml` 中。
 

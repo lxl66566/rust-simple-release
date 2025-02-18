@@ -12,6 +12,8 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
+import toml
+
 TARGET_DIR = "target/rust-release-action"
 artifacts_path: list[Path] = []
 
@@ -492,11 +494,25 @@ def create_release():
 
 def fuck_openssl():
     lock = Path("Cargo.lock")
-    if not (
-        (lock.exists() and "openssl" in lock.read_text())
-        or any(map(lambda x: "openssl" in x.read_text(), Path(".").rglob("Cargo.toml")))
-    ):
+    if not (lock.exists() and "openssl" in lock.read_text()):
         return
+
+    # add vendored feature
+    # note: it will change your Cargo.toml in CI environment if openssl is in Cargo.lock
+    # note: once it detects openssl in Cargo.lock, it will change your Cargo.toml in all workspace packages
+
+    for file in Path(".").rglob("Cargo.toml"):
+        data = toml.loads(file.read_text())
+        if "workspace" in data:
+            continue
+        data.setdefault("dependencies", {}).setdefault("openssl", {})["features"] = [
+            "vendored"
+        ]
+        if "version" not in data["dependencies"]["openssl"]:
+            data["dependencies"]["openssl"]["version"] = "*"
+        file.write_text(toml.dumps(data))
+
+    # install openssl sys package
     if System().is_linux():
         apt("pkg-config", "libssl-dev")
     elif System().is_macos():
