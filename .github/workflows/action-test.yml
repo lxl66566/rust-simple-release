@@ -21,7 +21,14 @@ jobs:
         with:
           package: action-test
           release_options: --title ${{ github.ref_name }}
-          targets: aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl, x86_64-pc-windows-msvc, x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin
+          targets: |
+            aarch64-unknown-linux-gnu
+            aarch64-unknown-linux-musl
+            x86_64-pc-windows-msvc
+            x86_64-unknown-linux-musl
+            x86_64-unknown-linux-gnu
+            aarch64-apple-darwin
+            x86_64-apple-darwin
           features: test1
           files_to_pack: README.md, .github/workflows
           token: ${{ secrets.GH_TOKEN }}
@@ -40,7 +47,14 @@ jobs:
           bins: openssl2
           release_options: --title ${{ github.ref_name }}
           package: openssl-test
-          targets: aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl, x86_64-pc-windows-msvc, x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin
+          targets: |
+            aarch64-unknown-linux-gnu
+            aarch64-unknown-linux-musl
+            x86_64-pc-windows-msvc
+            x86_64-unknown-linux-musl
+            x86_64-unknown-linux-gnu
+            aarch64-apple-darwin
+            x86_64-apple-darwin
           files_to_pack: README.md, .github/workflows
           token: ${{ secrets.GH_TOKEN }}
         env:
@@ -56,7 +70,14 @@ jobs:
         uses: lxl66566/rust-simple-release@main
         with:
           package: lib_test
-          targets: aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl, x86_64-pc-windows-msvc, x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin
+          targets: |
+            aarch64-unknown-linux-gnu
+            aarch64-unknown-linux-musl
+            x86_64-pc-windows-msvc
+            x86_64-unknown-linux-musl
+            x86_64-unknown-linux-gnu
+            aarch64-apple-darwin
+            x86_64-apple-darwin
           token: ${{ secrets.GH_TOKEN }}
         env:
           debug: 1

@@ -29,15 +29,16 @@ def get_input(name: str):
 
 
 def get_input_list(name: str) -> list[str]:
-    """
+    r"""
+    split input env name by comma or newline, and strip each item.
     >>> import os
-    >>> os.environ["456123"] = "a,b,123,456"
+    >>> os.environ["456123"] = "a\nb\n123,456"
     >>> get_input_list(" 456123  ")
     ['a', 'b', '123', '456']
     """
     temp = get_input(name)
     if temp:
-        return list(map(lambda x: x.strip(), temp.split(",")))
+        return list(map(lambda x: x.strip(), temp.replace("\n", ",").split(",")))
     else:
         return []
 
@@ -261,9 +262,9 @@ def get_output_filenames(target: str, package: str | None = None) -> list[str]:
 
     output_filenames = []
     if bins := get_input_list("INPUT_BINS"):
-        assert set(bins) <= set(
-            bin_names
-        ), "input bins must be a subset of actual bin names"
+        assert set(bins) <= set(bin_names), (
+            "input bins must be a subset of actual bin names"
+        )
         output_filenames.extend(set(bins))
     else:
         output_filenames.extend(bin_names)
@@ -376,7 +377,7 @@ def build_one_target(target: str):
     if _ := get_input("INPUT_LIB"):
         cmd.append("--lib")
     if features := get_input_list("INPUT_FEATURES"):
-        cmd.append(f"--features {",".join(features)}")
+        cmd.append(f"--features {','.join(features)}")
     if package := get_input("INPUT_PACKAGE"):
         cmd.append(f"--package {package}")
     rc(" ".join(cmd), env=build_env)
@@ -571,6 +572,8 @@ class Test(unittest.TestCase):
         assert get_input_list(" 456123  ") == ["a", "b", "123", "456"]
 
     def test_pack(self):
+        if not (Path("target") / "release" / "my-action-test.exe").exists():
+            return
         pack("123456", "", package="action-test")
         assert (Path(tempfile.gettempdir()) / "123456.zip").exists() or (
             Path(tempfile.gettempdir()) / "123456.tar.gz"

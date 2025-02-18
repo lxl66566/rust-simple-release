@@ -37,7 +37,15 @@ jobs:
       - name: test build rust project
         uses: lxl66566/rust-simple-release@main
         with:
-          targets: aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl, x86_64-pc-windows-msvc, x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin
+          targets: |
+            aarch64-unknown-linux-gnu
+            aarch64-unknown-linux-musl
+            x86_64-pc-windows-msvc
+            x86_64-unknown-linux-musl
+            x86_64-unknown-linux-gnu
+            aarch64-apple-darwin
+            x86_64-apple-darwin
+
           token: ${{ secrets.GH_TOKEN }}
 ```
 
@@ -60,9 +68,16 @@ jobs:
       - name: test build rust project
         uses: lxl66566/rust-simple-release@main
         with:
-          # Targets to compile, seperated by comma (allow space)
+          # Targets to compile, seperated by comma or newline
           # Support Linux, Windows and Darwin
-          targets: aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl, x86_64-pc-windows-msvc, x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin
+          targets: |
+            aarch64-unknown-linux-gnu
+            aarch64-unknown-linux-musl
+            x86_64-pc-windows-msvc
+            x86_64-unknown-linux-musl
+            x86_64-unknown-linux-gnu
+            aarch64-apple-darwin
+            x86_64-apple-darwin
 
           # Choose one package to build. If not set, it will build first package in workspace.
           package: openssl-test
@@ -97,7 +112,6 @@ jobs:
 
 ## Hint
 
-- automatically uses [sccache](https://github.com/Mozilla-Actions/sccache-action), no need to set twice
 - Now the archive format is not choosable: `zip` for windows and `tar.gz` for other systems. (request a feature if you want to change it :)
 
 ## License

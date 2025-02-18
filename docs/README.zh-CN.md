@@ -37,7 +37,15 @@ jobs:
       - name: test build rust project
         uses: lxl66566/rust-simple-release@main
         with:
-          targets: aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl, x86_64-pc-windows-msvc, x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin
+          targets: |
+            aarch64-unknown-linux-gnu
+            aarch64-unknown-linux-musl
+            x86_64-pc-windows-msvc
+            x86_64-unknown-linux-musl
+            x86_64-unknown-linux-gnu
+            aarch64-apple-darwin
+            x86_64-apple-darwin
+
           token: ${{ secrets.GH_TOKEN }}
 ```
 
@@ -60,9 +68,16 @@ jobs:
       - name: test build rust project
         uses: lxl66566/rust-simple-release@main
         with:
-          # 要编译的目标，用逗号隔开（允许空格）
+          # 要编译的目标，用逗号或换行符分隔
           # 支持 Linux, Windows, Darwin(macos)
-          targets: aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl, x86_64-pc-windows-msvc, x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin
+          targets: |
+            aarch64-unknown-linux-gnu
+            aarch64-unknown-linux-musl
+            x86_64-pc-windows-msvc
+            x86_64-unknown-linux-musl
+            x86_64-unknown-linux-gnu
+            aarch64-apple-darwin
+            x86_64-apple-darwin
 
           # 选择要构建的 package。如果未设置，它将构建 workspace 中的第一个 package。
           package: openssl-test
@@ -96,7 +111,6 @@ jobs:
 
 ## 提示
 
-- 自动使用 [sccache](https://github.com/Mozilla-Actions/sccache-action)，无需重复设置
 - 目前无法选择打包格式： 在 windows 上是 `zip`，在其他系统上是 `tar.gz`。(如果希望更改打包格式，请提 issue)
 
 ## License
