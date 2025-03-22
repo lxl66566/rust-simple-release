@@ -360,7 +360,9 @@ def build_one_target(target: str):
     rc(f"rustup target add {target}")
 
     if flag := create_flags(target):
-        build_env["RUSTFLAGS"] = flag
+        build_env["RUSTFLAGS"] = (
+            (build_env.get("RUSTFLAGS") or "") + f" {flag}"
+        ).strip()
 
     # do not use zigbuild on windows: unable to spawn zig.exe: InvalidWtf8 error: UnableToSpawnSelf
     # do not use zigbuild on macos: https://github.com/rust-cross/cargo-zigbuild/issues/275
