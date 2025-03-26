@@ -366,7 +366,16 @@ def build_one_target(target: str):
 
     # do not use zigbuild on windows: unable to spawn zig.exe: InvalidWtf8 error: UnableToSpawnSelf
     # do not use zigbuild on macos: https://github.com/rust-cross/cargo-zigbuild/issues/275
-    if not System().is_windows() and not System().is_macos():
+    # do not use zigbuild on x86_64-unknown-linux-gnu: https://github.com/rust-cross/cargo-zigbuild/issues/327
+    if (
+        not System().is_windows()
+        and not System().is_macos()
+        and not (
+            platform.architecture()[0] == "64bit"
+            and target.startswith("x86_64")
+            and target.endswith("gnu")
+        )
+    ):
         build_cmd = "zigbuild"
     else:
         build_cmd = "build"
