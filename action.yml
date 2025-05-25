@@ -54,7 +54,7 @@ runs:
     #   uses: mozilla-actions/sccache-action@v0.0.7
 
     # do not use nightly zig: https://github.com/rust-cross/cargo-zigbuild/issues/290
-    - uses: mlugg/setup-zig@v1
+    - uses: mlugg/setup-zig@v2
       if: runner.os != 'Windows' && runner.os != 'macOS'
     # https://github.com/sfackler/rust-openssl/issues/2149#issuecomment-2014064057
     - name: Set Perl environment variables
