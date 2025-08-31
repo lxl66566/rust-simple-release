@@ -167,7 +167,9 @@ def create_zip_in_tmp(zip_name: str, files_to_add: list[Path]) -> Path:
     will add all files in `files_to_add` to the zip file.
     """
     zip_path = Path(tempfile.gettempdir()) / (zip_name + ".zip")
-    with zipfile.ZipFile(zip_path, "w") as zipf:
+    with zipfile.ZipFile(
+        zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
+    ) as zipf:
         for file in files_to_add:
             if os.path.isdir(file):
                 for foldername, _subfolders, filenames in os.walk(file):
