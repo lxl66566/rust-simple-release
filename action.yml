@@ -39,6 +39,10 @@ inputs:
       so you usually don't need to set this manually.
     required: false
     default: ${{ github.token }}
+  openssl_vendored:
+    description: "whether to vendor openssl (build from source)"
+    required: false
+    default: "true"
   release_options:
     description: "gh release create command options"
     required: false
@@ -80,6 +84,7 @@ runs:
         INPUT_LIB: ${{ inputs.lib }}
         INPUT_FEATURES: ${{ inputs.features }}
         INPUT_FILES_TO_PACK: ${{ inputs.files_to_pack }}
+        INPUT_OPENSSL_VENDORED: ${{ inputs.openssl_vendored }}
         GITHUB_REF_NAME: ${{ github.ref_name }}
         GITHUB_TOKEN: ${{ inputs.token }}
         INPUT_RELEASE_OPTIONS: ${{ inputs.release_options }}

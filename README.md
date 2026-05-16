@@ -6,7 +6,7 @@ English | [简体中文](./docs/README.zh-CN.md)
 
 This CI is for small and middle rust project, which doesn't need complex CI/CD. It supports rust workspace, but only allows build and upload from one package. (request features if you want more packages to build :) And it supports building multi features, bins and lib.
 
-**You don't need to worry about openssl deps, this action will solve it.** This action will automatically detect openssl, and add `vendored` feature.
+**You don't need to worry about openssl deps, this action will solve it.** This action will automatically detect openssl, and add `vendored` feature. You can set `openssl_vendored: "false"` to disable this behavior.
 
 If you are using nightly or other channels, please add it to `rust-toolchain.toml`.
 
@@ -110,6 +110,9 @@ jobs:
 
           # release create options, see https://cli.github.com/manual/gh_release_create
           release_options: --draft --title 123
+
+          # Whether to vendor openssl, defaults to auto detect deps
+          openssl_vendored: "false"
 
           # GITHUB TOKEN (optional), if you need to use custom token, set it here
           token: ${{ secrets.GH_TOKEN }}

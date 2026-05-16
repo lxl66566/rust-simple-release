@@ -506,6 +506,11 @@ def create_release():
 
 
 def fuck_openssl():
+    openssl_vendored = get_input("INPUT_OPENSSL_VENDORED")
+    if openssl_vendored is not None and openssl_vendored.lower() in ("false", "0", "no"):
+        info("openssl vendoring is disabled")
+        return
+
     lock = Path("Cargo.lock")
     if not (lock.exists() and "openssl" in lock.read_text()):
         return

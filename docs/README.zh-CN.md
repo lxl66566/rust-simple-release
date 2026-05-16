@@ -6,7 +6,7 @@
 
 此 CI 适用于不需要复杂 CI/CD 的中小型 rust 项目。它支持 rust workspace，但一次只允许从一个 package 构建和上传。（如果您想构建更多 package，请开 issue 进行 feature request）它还支持声明 features，bins 和 lib 的任意组合。
 
-**您无需担心 openssl 造成的问题，此 action 已帮您解决。** action 会自动检测 openssl，并添加 `vendored` feature。
+**您无需担心 openssl 造成的问题，此 action 已帮您解决。** action 会自动检测 openssl，并添加 `vendored` feature。您可以通过 `openssl_vendored: "false"` 关闭此行为。
 
 如果您使用 nightly 或其他 channels，请将其添加到 `rust-toolchain.toml` 中。
 
@@ -109,6 +109,9 @@ jobs:
 
           # release 创建选项, 查看 https://cli.github.com/manual/gh_release_create
           release_options: --draft --title 123
+
+          # 是否 vendor openssl，默认为自动检测依赖
+          openssl_vendored: "false"
 
           # GITHUB TOKEN（选填），如果你需要使用自定义的 TOKEN，请在此处设置
           token: ${{ secrets.GH_TOKEN }}
