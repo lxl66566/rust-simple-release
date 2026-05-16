@@ -14,7 +14,14 @@ This action will automatically setup rust dev environment, and other tools like 
 
 ## Usage
 
-Please set your Github token before using this action. The example below uses `GH_TOKEN` as the secret name, you can change it to your own secret name.
+### Prerequisites
+
+Your workflow must have `contents: write` permission if you don't use custom token:
+
+```yaml
+permissions:
+  contents: write
+```
 
 ### Simple
 
@@ -26,6 +33,8 @@ on:
   push:
     tags:
       - "v*"
+permissions:
+  contents: write
 jobs:
   release:
     runs-on: ${{ matrix.os }}
@@ -45,8 +54,6 @@ jobs:
             x86_64-unknown-linux-gnu
             aarch64-apple-darwin
             x86_64-apple-darwin
-
-          token: ${{ secrets.GH_TOKEN }}
 ```
 
 ### Full
@@ -57,6 +64,8 @@ on:
   push:
     tags:
       - "v*"
+permissions:
+  contents: write
 jobs:
   basic_test:
     runs-on: ${{ matrix.os }}
@@ -102,9 +111,8 @@ jobs:
           # release create options, see https://cli.github.com/manual/gh_release_create
           release_options: --draft --title 123
 
-          # GITHUB TOKEN, **REQUIRED**
+          # GITHUB TOKEN (optional), if you need to use custom token, set it here
           token: ${{ secrets.GH_TOKEN }}
-
         env:
           # debug level, print more logs
           debug: 1

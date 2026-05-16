@@ -5,6 +5,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
 jobs:
   basic_test:
     runs-on: ${{ matrix.os }}
@@ -13,9 +16,6 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
-      # - uses: taiki-e/create-gh-release-action@v1
-      #   with:
-      #     token: ${{ secrets.GH_TOKEN }}
       - name: test build rust project
         uses: lxl66566/rust-simple-release@main
         with:
@@ -56,7 +56,6 @@ jobs:
             aarch64-apple-darwin
             x86_64-apple-darwin
           files_to_pack: README.md, .github/workflows
-          token: ${{ secrets.GH_TOKEN }}
         env:
           debug: 1
   lib_test:
@@ -78,6 +77,5 @@ jobs:
             x86_64-unknown-linux-gnu
             aarch64-apple-darwin
             x86_64-apple-darwin
-          token: ${{ secrets.GH_TOKEN }}
         env:
           debug: 1

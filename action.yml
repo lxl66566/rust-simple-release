@@ -35,8 +35,10 @@ inputs:
     description: >
       GitHub token for creating GitHub Releases.
 
-      If not set this option, the GITHUB_TOKEN environment variable will be used.
-    required: true
+      Defaults to the GITHUB_TOKEN automatically provided by GitHub Actions,
+      so you usually don't need to set this manually.
+    required: false
+    default: ${{ github.token }}
   release_options:
     description: "gh release create command options"
     required: false

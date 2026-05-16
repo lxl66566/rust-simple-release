@@ -14,7 +14,14 @@
 
 ## 使用
 
-请在使用此操作前设置 Github token。下面的示例使用 `GH_TOKEN` 作为 secret name，您可以使用任意 secret name。
+### 前置要求
+
+如果不使用自定义 TOKEN，你的工作流必须声明 `contents: write` 权限：
+
+```yaml
+permissions:
+  contents: write
+```
 
 ### 简单
 
@@ -26,6 +33,8 @@ on:
   push:
     tags:
       - "v*"
+permissions:
+  contents: write
 jobs:
   release:
     runs-on: ${{ matrix.os }}
@@ -45,8 +54,6 @@ jobs:
             x86_64-unknown-linux-gnu
             aarch64-apple-darwin
             x86_64-apple-darwin
-
-          token: ${{ secrets.GH_TOKEN }}
 ```
 
 ### 所有配置
@@ -57,6 +64,8 @@ on:
   push:
     tags:
       - "v*"
+permissions:
+  contents: write
 jobs:
   basic_test:
     runs-on: ${{ matrix.os }}
@@ -101,7 +110,7 @@ jobs:
           # release 创建选项, 查看 https://cli.github.com/manual/gh_release_create
           release_options: --draft --title 123
 
-          # GITHUB TOKEN, **必填**
+          # GITHUB TOKEN（选填），如果你需要使用自定义的 TOKEN，请在此处设置
           token: ${{ secrets.GH_TOKEN }}
 
         env:
