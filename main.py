@@ -426,7 +426,7 @@ def pack(
     paths = list(map(Path, get_input_list("INPUT_FILES_TO_PACK") or []))
     paths.extend(
         map(
-            lambda x: (Path("target") / target / "release" / x),
+            lambda x: Path("target") / target / "release" / x,
             get_output_filenames(target, package=package),
         )
     )
@@ -507,12 +507,22 @@ def create_release():
 
 def fuck_openssl():
     openssl_vendored = get_input("INPUT_OPENSSL_VENDORED")
-    if openssl_vendored is not None and openssl_vendored.lower() in ("false", "0", "no"):
+    if openssl_vendored is not None and openssl_vendored.lower() in (
+        "false",
+        "0",
+        "no",
+    ):
         info("openssl vendoring is disabled")
         return
 
     lock = Path("Cargo.lock")
-    if not (lock.exists() and "openssl" in lock.read_text()):
+    if not lock.exists():
+        return
+    lock_data = toml.loads(lock.read_text())
+    has_openssl = any(
+        pkg.get("name") == "openssl" for pkg in lock_data.get("package", [])
+    )
+    if not has_openssl:
         return
 
     # add vendored feature
