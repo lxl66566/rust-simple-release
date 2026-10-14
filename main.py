@@ -2,10 +2,12 @@ import json
 import logging as log
 import os
 import platform
+import queue
 import shutil
 import subprocess
 import tarfile
 import tempfile
+import threading
 import unittest
 import zipfile
 from functools import wraps
@@ -15,7 +17,6 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 import toml
 
 TARGET_DIR = "target/rust-release-action"
-artifacts_path: list[Path] = []
 
 
 def debug_mode():
@@ -399,24 +400,24 @@ def build_one_target(target: str):
     info(f"target {target} build success")
 
     archive_name = get_selected_package_metadata()["name"] + "-" + target
-    pack(archive_name, target)
+    artifact = pack(archive_name, target)
 
     info(f"target {target} packed")
+    return artifact
 
 
 def pack(
     name: str,
     target: str | None,
     package: str | None = None,
-):
+) -> Path:
     """
-    compress the binary.
+    compress the built files and return the archive path.
 
     `name`: the archive name (without extension). ex. `git-se-aarch64-apple-darwin.tar.gz`
     `target`: the build target
     `package`: the package name
     """
-    global artifacts_path
     format = target_to_archive_format(target)
     assert format in ["zip", "tar"], "unsupported format"
 
@@ -437,10 +438,11 @@ def pack(
     assert len(paths) > 0, "no files to pack"
 
     if format == "zip":
-        artifacts_path.append(create_zip_in_tmp(name, paths))
+        artifact = create_zip_in_tmp(name, paths)
     else:
-        artifacts_path.append(create_tar_gz_in_tmp(name, paths))
+        artifact = create_tar_gz_in_tmp(name, paths)
     info("files packed")
+    return artifact
 
 
 def target_to_archive_format(target: str | None):
@@ -474,17 +476,43 @@ def retry(func: Callable[..., Any], times: int = 5):
     return False
 
 
-def upload_files_to_github_release(files: list[Path]):
+def upload_one_file(file: Path) -> bool:
     ref_name = get_input("GITHUB_REF_NAME")
-    artifacts = " ".join(list(map(str, files)))
 
     # https://github.com/orgs/community/discussions/26686#discussioncomment-3396593
-    res = retry(lambda: rc(f"""gh release upload "{ref_name}" {artifacts} --clobber"""))
+    res = retry(lambda: rc(f"""gh release upload "{ref_name}" "{file}" --clobber"""))
     if res:
-        info("file upload successfully")
+        info(f"file `{file}` uploaded successfully")
     else:
-        log.error(colored("cannot upload file.", "red"))
-        exit(1)
+        log.error(colored(f"cannot upload file: {file}", "red"))
+    return res
+
+
+class Uploader:
+    """
+    upload artifacts one by one in a single background thread, overlapped with the subsequent builds.
+    """
+
+    def __init__(self):
+        self.queue: queue.Queue[Path | None] = queue.Queue()
+        self.failed: list[Path] = []
+        self.thread = threading.Thread(target=self._worker)
+        self.thread.start()
+
+    def _worker(self):
+        while (file := self.queue.get()) is not None:
+            if not upload_one_file(file):
+                self.failed.append(file)
+
+    def submit(self, file: Path):
+        self.queue.put(file)
+
+    def wait(self):
+        """
+        block until every submitted file has been uploaded.
+        """
+        self.queue.put(None)
+        self.thread.join()
 
 
 def create_release():
@@ -589,12 +617,18 @@ def main():
     install_toolchain()
     fuck_openssl()
     targets = get_input_list("INPUT_TARGETS")
-    for target in targets:
-        if not target_coresponding_to_platform(target):
-            info("platform does not match, skip build target.")
-            continue
-        build_one_target(target)
-    upload_files_to_github_release(artifacts_path)
+    uploader = Uploader()
+    try:
+        for target in targets:
+            if not target_coresponding_to_platform(target):
+                info("platform does not match, skip build target.")
+                continue
+            uploader.submit(build_one_target(target))
+    finally:
+        # queued artifacts are still uploaded when a later build fails
+        uploader.wait()
+    if uploader.failed:
+        exit(1)
 
 
 if __name__ == "__main__":
