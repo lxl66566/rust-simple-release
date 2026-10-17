@@ -3,7 +3,7 @@ import sys
 
 from rust_simple_release.build import build_one_target, install_toolchain
 from rust_simple_release.inputs import debug_mode, get_input_list
-from rust_simple_release.logutil import error, info
+from rust_simple_release.logutil import error, info, warn
 from rust_simple_release.openssl import vendor_openssl
 from rust_simple_release.publish import Uploader, create_release
 from rust_simple_release.system import target_corresponds_to_host
@@ -14,14 +14,21 @@ def main() -> None:
     targets = get_input_list("INPUT_TARGETS")
     if not targets:
         error("no targets to build, set the `targets` input")
-        raise SystemExit(1)
+        sys.exit(1)
     create_release()
     install_toolchain()
     vendor_openssl()
     uploader = Uploader()
     try:
         for target in targets:
-            if not target_corresponds_to_host(target):
+            try:
+                # an os this action knows nothing about (e.g. freebsd, wasm) can
+                # never match the host, so skip it like any other mismatch
+                corresponds = target_corresponds_to_host(target)
+            except ValueError as e:
+                warn(f"{e}, skip it")
+                continue
+            if not corresponds:
                 info("platform does not match, skip build target.")
                 continue
             uploader.submit(build_one_target(target))
