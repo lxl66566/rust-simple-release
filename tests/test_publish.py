@@ -80,7 +80,21 @@ class CreateReleaseTest(unittest.TestCase):
         self.rc.side_effect = [
             subprocess.CalledProcessError(1, "gh release view"),
             created,
+            subprocess.CalledProcessError(1, "gh release view"),
         ]
         with self.assertRaises(SystemExit) as ctx:
             create_release()
         assert ctx.exception.code == 1
+
+    def test_create_race_lost_to_concurrent_job_is_tolerated(self):
+        lost = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="Release.tag_name already exists"
+        )
+        self.rc.side_effect = [
+            subprocess.CalledProcessError(1, "gh release view"),
+            lost,
+            subprocess.CompletedProcess(args=[], returncode=0),
+        ]
+        create_release()
+        assert self.rc.call_count == 3
+        assert 'gh release view "v1.0.0"' in self.rc.call_args_list[2].args[0]

@@ -8,9 +8,7 @@ from .logutil import error, info
 from .proc import rc, retry
 
 
-def create_release() -> None:
-    options = get_input("INPUT_RELEASE_OPTIONS")
-    ref_name = get_input("GITHUB_REF_NAME")
+def release_exists(ref_name: str) -> bool:
     try:
         # https://github.com/orgs/community/discussions/26686#discussioncomment-3396593
         rc(
@@ -18,19 +16,30 @@ def create_release() -> None:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+        return True
     except subprocess.CalledProcessError:
+        return False
+
+
+def create_release() -> None:
+    options = get_input("INPUT_RELEASE_OPTIONS")
+    ref_name = get_input("GITHUB_REF_NAME")
+    if not release_exists(ref_name):
         cmd = f"""gh release create "{ref_name}" """
         if options:
             cmd += options
         res = rc(cmd, check=False, capture_output=True, text=True)
         if res.returncode != 0:
-            error(f"cannot create release, `{cmd}` exited with {res.returncode}")
-            if res.stdout:
-                error(str(res.stdout).strip())
-            if res.stderr:
-                error(str(res.stderr).strip())
-            raise SystemExit(1)
-        if res.stdout:
+            # a concurrent job may create the release between the view and the create
+            if not release_exists(ref_name):
+                error(f"cannot create release, `{cmd}` exited with {res.returncode}")
+                if res.stdout:
+                    error(str(res.stdout).strip())
+                if res.stderr:
+                    error(str(res.stderr).strip())
+                raise SystemExit(1)
+            info(f'release "{ref_name}" already created by a concurrent job')
+        elif res.stdout:
             info(str(res.stdout).strip())
     info(f"""release "{ref_name}" created""")
 
