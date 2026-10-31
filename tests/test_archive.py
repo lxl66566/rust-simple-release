@@ -105,3 +105,20 @@ class PackTest(unittest.TestCase):
         get_outputs.assert_called_once_with(self.TRIPLE, package="action-test")
         with zipfile.ZipFile(archive) as zf:
             assert normalized(zf.namelist()) == ["extra.txt", "fakebin"]
+
+    def test_exits_with_missing_files_listed(self):
+        self.addCleanup(chdir(Path(tempfile.gettempdir())))
+        with (
+            mock.patch(
+                "rust_simple_release.archive.get_output_filenames",
+                return_value=["ghostbin"],
+            ),
+            mock.patch("rust_simple_release.archive.error") as error,
+        ):
+            with self.assertRaises(SystemExit) as ctx:
+                pack("rsr-test-missing", self.TRIPLE, package="action-test")
+
+        assert ctx.exception.code == 1
+        error.assert_called_once()
+        expected = str(Path("target") / self.TRIPLE / "release" / "ghostbin")
+        assert expected in error.call_args[0][0]

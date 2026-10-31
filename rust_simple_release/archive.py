@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .cargo import get_output_filenames
 from .inputs import get_input_list
-from .logutil import debug, info
+from .logutil import debug, error, info
 from .system import Os, os_from_target
 
 
@@ -85,6 +85,11 @@ def pack(
     paths = list(dict.fromkeys(paths))
     info(f"packing paths: `{paths}`")
     assert len(paths) > 0, "no files to pack"
+
+    missing = [str(p) for p in paths if not p.exists()]
+    if missing:
+        error(f"files to pack not found: {', '.join(missing)}")
+        raise SystemExit(1)
 
     if archive_format == "zip":
         artifact = create_zip_in_tmp(name, paths)
